@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -185,7 +186,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	s.s3Handler.SetScanner(s.scanner)
 
 	// Initialize share link handler
-	s.shareLinkHandler = NewShareLinkHandler(s.s3Handler)
+	s.shareLinkHandler = NewShareLinkHandler(s.storage, s.s3Handler)
 
 	s.setupRoutes()
 
@@ -249,6 +250,48 @@ func (s *Server) setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")
 }
 
+func (s *Server) requireLocalHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isLoopbackRequest(r) {
+			logrus.WithFields(logrus.Fields{
+				"remote_addr":       r.RemoteAddr,
+				"x_forwarded_for":   r.Header.Get("X-Forwarded-For"),
+				"x_real_ip":         r.Header.Get("X-Real-Ip"),
+				"requested_endpoint": r.URL.Path,
+			}).Warn("Rejected non-local access to profiling endpoint")
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isLoopbackRequest(r *http.Request) bool {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ip := strings.TrimSpace(strings.Split(forwarded, ",")[0])
+		return isLoopbackIP(ip)
+	}
+
+	addr := strings.TrimSpace(r.RemoteAddr)
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
+	}
+
+	return isLoopbackIP(addr)
+}
+
+func isLoopbackIP(addr string) bool {
+	if addr == "" {
+		return false
+	}
+
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback()
+}
+
 func (s *Server) setupAPIDocumentation() {
 	// Read the OpenAPI spec
 	openAPISpec, err := os.ReadFile("api/openapi.yaml")
@@ -281,19 +324,20 @@ func (s *Server) setupRoutes() {
 
 	// Register pprof endpoints if enabled
 	if s.config.Monitoring.PprofEnabled {
-		logrus.Info("pprof profiling endpoints enabled at /debug/pprof/")
-		// Import registers handlers with DefaultServeMux, but we need to handle them directly
-		s.router.HandleFunc("/debug/pprof/", pprof.Index)
-		s.router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-		s.router.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		s.router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		s.router.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		s.router.Handle("/debug/pprof/heap", pprof.Handler("heap"))
-		s.router.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
-		s.router.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
-		s.router.Handle("/debug/pprof/block", pprof.Handler("block"))
-		s.router.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
-		s.router.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
+		logrus.Info("pprof profiling endpoints enabled at /debug/pprof/ (loopback only)")
+		localOnly := s.requireLocalHandler
+
+		s.router.Handle("/debug/pprof/", localOnly(http.HandlerFunc(pprof.Index)))
+		s.router.Handle("/debug/pprof/cmdline", localOnly(http.HandlerFunc(pprof.Cmdline)))
+		s.router.Handle("/debug/pprof/profile", localOnly(http.HandlerFunc(pprof.Profile)))
+		s.router.Handle("/debug/pprof/symbol", localOnly(http.HandlerFunc(pprof.Symbol)))
+		s.router.Handle("/debug/pprof/trace", localOnly(http.HandlerFunc(pprof.Trace)))
+		s.router.Handle("/debug/pprof/heap", localOnly(pprof.Handler("heap")))
+		s.router.Handle("/debug/pprof/goroutine", localOnly(pprof.Handler("goroutine")))
+		s.router.Handle("/debug/pprof/threadcreate", localOnly(pprof.Handler("threadcreate")))
+		s.router.Handle("/debug/pprof/block", localOnly(pprof.Handler("block")))
+		s.router.Handle("/debug/pprof/mutex", localOnly(pprof.Handler("mutex")))
+		s.router.Handle("/debug/pprof/allocs", localOnly(pprof.Handler("allocs")))
 	}
 
 	// Register API documentation endpoint

@@ -20,12 +20,11 @@ type Provider interface {
 	GetSecretKey(accessKey string) (string, error)
 }
 
-// FastAWSProvider provides optimized AWS credential authentication
+// FastAWSProvider provides a caching layer around a fully validated AWS provider.
 type FastAWSProvider struct {
-	accessKey string
-	secretKey string
-	mu        sync.RWMutex
-	cache     map[string]cacheEntry
+	delegate Provider
+	mu       sync.RWMutex
+	cache    map[string]cacheEntry
 }
 
 type cacheEntry struct {
@@ -34,6 +33,33 @@ type cacheEntry struct {
 }
 
 const cacheTTL = 5 * time.Minute
+
+// NewFastAWSProvider wraps an existing Provider with signature result caching.
+func NewFastAWSProvider(delegate Provider) (*FastAWSProvider, error) {
+	if delegate == nil {
+		return nil, fmt.Errorf("delegate provider is required")
+	}
+
+	return &FastAWSProvider{
+		delegate: delegate,
+		cache:    make(map[string]cacheEntry),
+	}, nil
+}
+
+func (p *FastAWSProvider) ensureInitialized() error {
+	p.mu.Lock()
+	if p.cache == nil {
+		p.cache = make(map[string]cacheEntry)
+	}
+	delegate := p.delegate
+	p.mu.Unlock()
+
+	if delegate == nil {
+		return fmt.Errorf("fast aws provider misconfigured: delegate provider is nil")
+	}
+
+	return nil
+}
 
 // NewProviderWithOPA creates a new auth provider with optional OPA integration
 func NewProviderWithOPA(cfg config.AuthConfig, opaConfig config.OPAConfig) (Provider, error) {
@@ -79,8 +105,8 @@ func NewProvider(cfg config.AuthConfig) (Provider, error) {
 			return provider, nil
 		}
 		// Allow empty credentials - they can be set later via API
-		// Debug logging to see what credentials we got
-		fmt.Printf("DEBUG: Creating AWSV4Provider with identity='%s', credential='[REDACTED]'\n", maskCredential(cfg.Identity))
+		logrus.WithField("identity_prefix", maskCredential(cfg.Identity)).
+			Debug("Creating AWSV4Provider with provided identity")
 		return &AWSV4Provider{
 			identity:   cfg.Identity,
 			credential: cfg.Credential,
@@ -229,13 +255,6 @@ func (p *AWSV4Provider) Authenticate(r *http.Request) error {
 	// Allow browser access to fallback credentials (less secure but more convenient)
 	// Note: In production, consider using proper Auth0 or API key authentication instead
 
-	// DEBUG: Log ALL headers to find the issue
-	logrus.WithFields(logrus.Fields{
-		"all_headers": r.Header,
-		"method":      r.Method,
-		"url":         r.URL.String(),
-	}).Info("AWSV4Provider: ALL HEADERS DEBUG")
-
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return fmt.Errorf("missing authorization header")
@@ -376,7 +395,8 @@ func (p *AWSV4Provider) Authenticate(r *http.Request) error {
 			"provided_signature": providedTrunc,
 			"method":             r.Method,
 			"path":               r.URL.Path,
-		}).Error("AWS Signature V4 validation failed")
+			"host":               r.Host,
+		}).Warn("AWS Signature V4 validation failed")
 		return fmt.Errorf("signature mismatch")
 	}
 
@@ -419,13 +439,17 @@ func hmacSHA256(key, data []byte) []byte {
 
 // Authenticate validates AWS signature for incoming requests - optimized for speed.
 func (p *FastAWSProvider) Authenticate(r *http.Request) error {
+	if err := p.ensureInitialized(); err != nil {
+		return err
+	}
+
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return fmt.Errorf("missing authorization header")
 	}
 
 	// Check cache first
-	cacheKey := authHeader + r.Method + r.URL.Path
+	cacheKey := authHeader + r.Method + r.URL.RequestURI()
 	p.mu.RLock()
 	if entry, ok := p.cache[cacheKey]; ok {
 		if time.Since(entry.timestamp) < cacheTTL {
@@ -438,20 +462,8 @@ func (p *FastAWSProvider) Authenticate(r *http.Request) error {
 	}
 	p.mu.RUnlock()
 
-	var err error
-	var valid bool
-
-	// Fast path for AWS Signature Version 4
-	if strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256 ") {
-		err = p.authenticateV4Fast(r, authHeader)
-		valid = err == nil
-	} else if strings.HasPrefix(authHeader, "AWS ") {
-		// Fast path for AWS Signature Version 2
-		err = p.authenticateV2Fast(r, authHeader)
-		valid = err == nil
-	} else {
-		err = fmt.Errorf("unsupported authorization method")
-	}
+	err := p.delegate.Authenticate(r)
+	valid := err == nil
 
 	// Update cache
 	p.mu.Lock()
@@ -472,50 +484,11 @@ func (p *FastAWSProvider) Authenticate(r *http.Request) error {
 	return err
 }
 
-func (p *FastAWSProvider) authenticateV2Fast(_ *http.Request, authHeader string) error {
-	parts := strings.SplitN(authHeader[4:], ":", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid authorization header format")
-	}
-
-	accessKey := parts[0]
-	if accessKey != p.accessKey {
-		return fmt.Errorf("invalid access key")
-	}
-
-	// For V2, we'll do simplified validation
-	// In production, implement full V2 signature validation
-	return nil
-}
-
-func (p *FastAWSProvider) authenticateV4Fast(_ *http.Request, authHeader string) error {
-	// Parse authorization header
-	if !strings.Contains(authHeader, "Credential=") {
-		return fmt.Errorf("missing credential in authorization header")
-	}
-
-	// Extract access key from Credential
-	credStart := strings.Index(authHeader, "Credential=") + 11
-	credEnd := strings.Index(authHeader[credStart:], "/")
-	if credEnd == -1 {
-		return fmt.Errorf("invalid credential format")
-	}
-
-	accessKey := authHeader[credStart : credStart+credEnd]
-	if accessKey != p.accessKey {
-		return fmt.Errorf("invalid access key")
-	}
-
-	// For fast path, we trust the client if access key matches
-	// In production, implement full V4 signature validation
-	return nil
-}
-
 func (p *FastAWSProvider) GetSecretKey(accessKey string) (string, error) {
-	if accessKey == p.accessKey {
-		return p.secretKey, nil
+	if err := p.ensureInitialized(); err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("unknown access key")
+	return p.delegate.GetSecretKey(accessKey)
 }
 
 // maskCredential masks sensitive credential values for safe logging

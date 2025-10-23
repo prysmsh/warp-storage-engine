@@ -7,21 +7,21 @@ import (
 // extractTableName tries to extract the table name from an Iceberg path
 func extractTableName(key string) string {
 	parts := strings.Split(key, "/")
-	
+
 	// Look for table name before metadata or data directories
 	for i, part := range parts {
 		if (part == "metadata" || part == "data") && i > 0 {
 			return parts[i-1]
 		}
 	}
-	
+
 	// Check for underscore prefix pattern
 	for i, part := range parts {
 		if strings.HasPrefix(part, "_") && i > 0 {
 			return parts[i-1]
 		}
 	}
-	
+
 	// Fallback to second-to-last part
 	if len(parts) >= 2 {
 		return parts[len(parts)-2]
@@ -35,7 +35,7 @@ func isIcebergMetadata(key string) bool {
 	if !strings.Contains(key, "/metadata/") {
 		return false
 	}
-	
+
 	// Check for various Iceberg metadata file types
 	return strings.HasSuffix(key, ".json") ||
 		strings.HasSuffix(key, ".text") ||
@@ -81,17 +81,10 @@ func getCacheHeaders(key string) (string, bool) {
 
 // isJavaSDKClient detects Java SDK clients (Trino, Hive, Hadoop, etc.)
 func isJavaSDKClient(userAgent string) bool {
-	userAgentLower := strings.ToLower(userAgent)
-	return strings.Contains(userAgentLower, "trino") ||
-		strings.Contains(userAgentLower, "presto") ||
-		(strings.Contains(userAgentLower, "java") && strings.Contains(userAgent, "app/Trino")) ||
-		strings.Contains(userAgentLower, "hive") ||
-		strings.Contains(userAgentLower, "hadoop") ||
-		strings.Contains(userAgentLower, "s3a") ||
-		strings.Contains(userAgentLower, "spark")
+	return detectClientProfileFromUserAgent(userAgent).JavaSDK
 }
 
 // isAWSCLIClient detects AWS CLI clients
 func isAWSCLIClient(userAgent string) bool {
-	return strings.Contains(strings.ToLower(userAgent), "aws-cli")
+	return detectClientProfileFromUserAgent(userAgent).AWSCLI
 }

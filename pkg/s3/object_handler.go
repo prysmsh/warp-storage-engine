@@ -208,9 +208,11 @@ func (h *Handler) getObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		headers.Set("Cache-Control", cacheControl)
 	}
 
+	profile := GetClientProfile(r)
+	logger = logger.WithField("userAgent", profile.UserAgent)
+
 	// Special handling for Java SDK clients (Trino, Hive, Hadoop)
-	userAgent := r.Header.Get("User-Agent")
-	if isJavaSDKClient(userAgent) {
+	if profile.JavaSDK {
 		// Force connection close to prevent client hanging
 		headers.Set("Connection", "close")
 		// Set AWS S3 headers for compatibility
@@ -322,9 +324,10 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 	icebergMeta := isIcebergMetadata(key)
 	icebergManifest := isIcebergManifest(key)
 	icebergData := isIcebergData(key)
-	userAgent := r.Header.Get("User-Agent")
-	isJavaClient := isJavaSDKClient(userAgent)
-	isAWSCLI := isAWSCLIClient(userAgent)
+	profile := GetClientProfile(r)
+	userAgent := profile.UserAgent
+	isJavaClient := profile.JavaSDK
+	isAWSCLI := profile.AWSCLI
 
 	// Initialize ETag variable
 	var etag string
@@ -351,7 +354,7 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		"contentMD5":           r.Header.Get("Content-MD5"),
 		"isIcebergMeta":        icebergMeta,
 		"isIcebergData":        icebergData,
-		"isSparkUpload":        isJavaClient || strings.Contains(userAgent, "Spark"),
+		"isSparkUpload":        profile.Spark || isJavaClient,
 		"checksumAlgorithm":    r.Header.Get("x-amz-sdk-checksum-algorithm"),
 	})
 
@@ -387,7 +390,7 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		// For Trino, we should NOT buffer - it causes timeouts
 		// Always buffer Iceberg metadata files regardless of client
 		// Metadata files are small but critical - they must be written atomically
-		if strings.Contains(userAgent, "Trino") && !icebergMeta {
+		if profile.Trino && !icebergMeta {
 			logger.WithFields(logrus.Fields{
 				"key":       key,
 				"userAgent": userAgent,
@@ -447,10 +450,10 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 			r.Header.Get("Content-Encoding") == "aws-chunked"
 
 		logger.WithFields(logrus.Fields{
-			"contentSha256": r.Header.Get("x-amz-content-sha256"),
-			"contentEncoding": r.Header.Get("Content-Encoding"), 
+			"contentSha256":     r.Header.Get("x-amz-content-sha256"),
+			"contentEncoding":   r.Header.Get("Content-Encoding"),
 			"isChunkedTransfer": isChunkedTransfer,
-			"isAWSCLI": isAWSCLI,
+			"isAWSCLI":          isAWSCLI,
 		}).Info("Chunked transfer detection")
 
 		if isChunkedTransfer {
@@ -467,13 +470,13 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		// For chunked transfers, use io.Copy instead of io.ReadFull to handle size variations
 		logger.WithFields(logrus.Fields{
 			"isChunkedTransfer": isChunkedTransfer,
-			"isAWSCLI": isAWSCLI,
-			"useChunkedPath": isChunkedTransfer && !isAWSCLI,
+			"isAWSCLI":          isAWSCLI,
+			"useChunkedPath":    isChunkedTransfer && !isAWSCLI,
 		}).Info("Deciding read strategy")
-		
+
 		if isChunkedTransfer && !isAWSCLI {
 			logger.Info("Using chunked transfer read strategy")
-			
+
 			// For chunked transfers, read up to actualSize but don't require exact match
 			limitedReader := io.LimitReader(body, actualSize)
 			buffer := bytes.NewBuffer(nil)
@@ -488,17 +491,17 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 				h.sendError(w, err, http.StatusBadRequest)
 				return
 			}
-			
+
 			// Copy read data to buffer and adjust size
 			copy(buf, buffer.Bytes())
 			buf = buf[:n]
 			actualSize = n
-			
+
 			logger.WithFields(logrus.Fields{
 				"expectedSize": size,
-				"actualRead": n,
+				"actualRead":   n,
 			}).Info("Successfully read chunked transfer")
-			
+
 		} else {
 			logger.Info("Using standard ReadFull strategy")
 			// For non-chunked transfers, use ReadFull for exact size validation
@@ -605,7 +608,7 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 	}).Info("Upload completed successfully, about to send response")
 
 	// Special handling for Trino and Hive clients (which use Java AWS SDK)
-	if isJavaSDKClient(userAgent) {
+	if profile.JavaSDK {
 
 		// Remove all checksum headers that might cause validation issues
 		w.Header().Del("x-amz-checksum-crc32")
@@ -745,9 +748,10 @@ func (h *Handler) headObject(w http.ResponseWriter, r *http.Request, bucket, key
 		}
 	}()
 
-	// Detect file types for optimization
+	// Detect client capabilities and file types for optimization
+	profile := GetClientProfile(r)
 	icebergMeta := isIcebergMetadata(key)
-	userAgent := r.Header.Get("User-Agent")
+	userAgent := profile.UserAgent
 
 	logger := logrus.WithFields(logrus.Fields{
 		"bucket":        bucket,
@@ -792,7 +796,7 @@ func (h *Handler) headObject(w http.ResponseWriter, r *http.Request, bucket, key
 	w.Header().Del("Content-MD5")
 
 	// Special handling for Java SDK clients (Trino, Hive, Hadoop)
-	if isJavaSDKClient(userAgent) {
+	if profile.JavaSDK {
 		// Force connection close to prevent client hanging
 		w.Header().Set("Connection", "close")
 
@@ -809,7 +813,7 @@ func (h *Handler) headObject(w http.ResponseWriter, r *http.Request, bucket, key
 	}
 
 	// For Trino/Iceberg, ensure proper response headers
-	if strings.Contains(userAgent, "Trino") || icebergMeta {
+	if profile.Trino || icebergMeta {
 		w.Header().Set("Connection", "close") // Force connection close
 		logger.WithFields(logrus.Fields{
 			"table":       extractTableName(key),

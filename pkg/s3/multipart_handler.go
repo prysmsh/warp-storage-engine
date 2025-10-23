@@ -72,8 +72,9 @@ func (h *Handler) uploadPart(w http.ResponseWriter, r *http.Request, bucket, key
 		}
 	}()
 
-	userAgent := r.Header.Get("User-Agent")
-	isAWSCLI := isAWSCLIClient(userAgent)
+	profile := GetClientProfile(r)
+	userAgent := profile.UserAgent
+	isAWSCLI := profile.AWSCLI
 
 	logger := logrus.WithFields(logrus.Fields{
 		"bucket":        bucket,

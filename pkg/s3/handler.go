@@ -86,6 +86,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", "AmazonS3")
 	w.Header().Set("x-amz-request-id", fmt.Sprintf("%d", start.UnixNano()))
 
+	// Detect client capabilities and attach to context for downstream handlers.
+	r, profile := WithClientProfile(r)
+
 	// Wrap response writer to capture status
 	wrapped := &responseWriter{
 		ResponseWriter: w,
@@ -98,6 +101,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"path":         r.URL.Path,
 		"query":        r.URL.RawQuery,
 		"userAgent":    r.Header.Get("User-Agent"),
+		"clientLabels": profile.Labels(),
 		"has_auth":     r.Header.Get("Authorization") != "",
 		"has_amz_date": r.Header.Get("X-Amz-Date") != "",
 		"all_headers":  r.Header,

@@ -26,10 +26,10 @@ type AuthContext struct {
 
 // AuthenticationManager handles all authentication logic
 type AuthenticationManager struct {
-	config     *config.Config
-	auth0      *Auth0Handler
-	awsAuth    auth.Provider
-	logger     *logrus.Logger
+	config  *config.Config
+	auth0   *Auth0Handler
+	awsAuth auth.Provider
+	logger  *logrus.Logger
 }
 
 // NewAuthenticationManager creates a new authentication manager
@@ -38,7 +38,7 @@ func NewAuthenticationManager(cfg *config.Config, auth0Handler *Auth0Handler, aw
 	if logger == nil {
 		logger = logrus.New()
 	}
-	
+
 	return &AuthenticationManager{
 		config:  cfg,
 		auth0:   auth0Handler,
@@ -58,7 +58,7 @@ func (am *AuthenticationManager) AuthenticateRequest(r *http.Request) (*AuthCont
 	}
 
 	authCtx := &AuthContext{}
-	
+
 	// Check if this is a public path
 	isPublicPath := am.isPublicPath(r.URL.Path)
 	isUIPath := am.isUIPath(r.URL.Path)
@@ -114,7 +114,7 @@ func (am *AuthenticationManager) AuthenticateRequest(r *http.Request) (*AuthCont
 				"method": r.Method,
 				"error":  err.Error(),
 			}).Warn("AWS signature authentication failed")
-			
+
 			return authCtx, &AuthenticationError{
 				Type:    "aws_signature_failed",
 				Message: "AWS signature authentication failed",
@@ -137,11 +137,11 @@ func (am *AuthenticationManager) ApplyAuthContext(r *http.Request, authCtx *Auth
 	ctx := r.Context()
 	ctx = context.WithValue(ctx, "authenticated", true)
 	ctx = context.WithValue(ctx, "auth_method", authCtx.AuthMethod)
-	
+
 	if authCtx.UserSub != "" {
 		ctx = context.WithValue(ctx, "user_sub", authCtx.UserSub)
 	}
-	
+
 	if len(authCtx.UserRoles) > 0 {
 		ctx = context.WithValue(ctx, "user_roles", authCtx.UserRoles)
 		ctx = context.WithValue(ctx, "is_admin", authCtx.IsAdmin)
@@ -247,10 +247,10 @@ func (am *AuthenticationManager) tryAPIKeyAuth(r *http.Request, authCtx *AuthCon
 // isPublicPath checks if a path should be publicly accessible
 func (am *AuthenticationManager) isPublicPath(path string) bool {
 	// Reject paths with traversal attempts (security-first approach)
-	if strings.Contains(path, "..") || 
-	   strings.Contains(path, "//") || 
-	   strings.Contains(path, "\\") ||
-	   !strings.HasPrefix(path, "/") {
+	if strings.Contains(path, "..") ||
+		strings.Contains(path, "//") ||
+		strings.Contains(path, "\\") ||
+		!strings.HasPrefix(path, "/") {
 		return false
 	}
 
@@ -261,7 +261,7 @@ func (am *AuthenticationManager) isPublicPath(path string) bool {
 			return true
 		}
 	}
-	
+
 	// Prefix matches with strict validation to prevent traversal
 	publicPrefixes := []string{"/docs/", "/api/auth/"}
 	for _, prefix := range publicPrefixes {
@@ -269,15 +269,15 @@ func (am *AuthenticationManager) isPublicPath(path string) bool {
 			// Additional security: ensure no traversal beyond the prefix
 			relativePath := path[len(prefix):]
 			// Reject any path containing suspicious patterns after the prefix
-			if strings.Contains(relativePath, "..") || 
-			   strings.Contains(relativePath, "//") ||
-			   strings.Contains(relativePath, "\\") {
+			if strings.Contains(relativePath, "..") ||
+				strings.Contains(relativePath, "//") ||
+				strings.Contains(relativePath, "\\") {
 				return false
 			}
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -307,20 +307,20 @@ func (am *AuthenticationManager) validateSecureSession(session interface{}) bool
 	type sessionInterface interface {
 		Values() map[interface{}]interface{}
 	}
-	
+
 	sess, ok := session.(sessionInterface)
 	if !ok {
 		return false
 	}
-	
+
 	values := sess.Values()
-	
+
 	// Check authentication flag
 	authenticated, ok := values["authenticated"].(bool)
 	if !ok || !authenticated {
 		return false
 	}
-	
+
 	// Check session expiration (critical security check)
 	if expiresAt, ok := values["expires_at"].(time.Time); ok {
 		if time.Now().After(expiresAt) {
@@ -330,7 +330,7 @@ func (am *AuthenticationManager) validateSecureSession(session interface{}) bool
 		// No expiration set - reject for security
 		return false
 	}
-	
+
 	// Validate session integrity using constant-time comparison
 	if expectedHash, ok := values["integrity_hash"].(string); ok {
 		if userSub, ok := values["user_sub"].(string); ok {
@@ -347,7 +347,7 @@ func (am *AuthenticationManager) validateSecureSession(session interface{}) bool
 		// No integrity hash - reject for security
 		return false
 	}
-	
+
 	return true
 }
 
@@ -362,13 +362,13 @@ func (am *AuthenticationManager) extractAccessKeyFromV4Auth(authHeader string) s
 	if credIndex == -1 {
 		return ""
 	}
-	
+
 	credStart := credIndex + 11 // len("Credential=")
 	if credStart >= len(authHeader) {
 		return ""
 	}
 
-	// Find end delimiter safely - look for '/' or ',' 
+	// Find end delimiter safely - look for '/' or ','
 	remaining := authHeader[credStart:]
 	credEnd := strings.Index(remaining, "/")
 	if credEnd == -1 {
@@ -377,14 +377,14 @@ func (am *AuthenticationManager) extractAccessKeyFromV4Auth(authHeader string) s
 			return ""
 		}
 	}
-	
+
 	// Bounds check before slicing
 	if credEnd <= 0 || credStart+credEnd > len(authHeader) {
 		return ""
 	}
 
 	accessKey := authHeader[credStart : credStart+credEnd]
-	
+
 	// Additional validation: access keys should be reasonable length
 	if len(accessKey) < 3 || len(accessKey) > 128 {
 		am.logger.WithField("key_length", len(accessKey)).Warn("Suspicious access key length")
@@ -401,13 +401,13 @@ func (am *AuthenticationManager) authenticateWithAPIKey(accessKey string, r *htt
 	// 1. Look up the API key
 	// 2. Get the secret key
 	// 3. Recompute the signature and compare
-	
+
 	// For now, let's implement a simplified approach:
 	// Check if this access key exists in our API key store
 	if am.auth0 == nil {
 		return false
 	}
-	
+
 	// Get all keys and find the one with this access key
 	allKeys := am.getAllAPIKeys()
 	for _, key := range allKeys {
@@ -417,27 +417,27 @@ func (am *AuthenticationManager) authenticateWithAPIKey(accessKey string, r *htt
 				am.logger.WithField("access_key", accessKey).Warn("API key has expired")
 				return false
 			}
-			
+
 			// Critical: Validate the cryptographic signature using the secret key
 			if !am.validateAPIKeySignature(r, key) {
 				am.logger.WithField("access_key", accessKey).Warn("API key signature validation failed")
 				return false
 			}
-			
+
 			// Update last used only after successful validation
 			now := time.Now()
 			key.LastUsed = &now
-			
+
 			am.logger.WithFields(logrus.Fields{
 				"user_id":    key.UserID,
 				"access_key": accessKey,
 				"key_name":   key.Name,
 			}).Info("API key cryptographically validated")
-			
+
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -446,10 +446,10 @@ func (am *AuthenticationManager) computeSessionIntegrityHash(userSub string, exp
 	// Use server secret (Auth0 client secret) as HMAC key
 	key := am.config.Auth0.ClientSecret
 	if key == "" {
-		// Fallback to a server-specific secret (in production, use proper key management)
-		key = "fallback-integrity-key-change-in-production"
+		am.logger.Warn("Auth0 client secret missing; refusing to compute session integrity hash with fallback")
+		return ""
 	}
-	
+
 	// Create integrity hash from user ID and expiration
 	hmacHash := hmac.New(sha256.New, []byte(key))
 	hmacHash.Write([]byte(userSub))
@@ -462,33 +462,33 @@ func (am *AuthenticationManager) getAllAPIKeys() []*APIKey {
 	if am.auth0 == nil || am.auth0.apiKeyStore == nil {
 		return nil
 	}
-	
+
 	// Access the API key store with proper locking
 	am.auth0.apiKeyStore.mu.RLock()
 	defer am.auth0.apiKeyStore.mu.RUnlock()
-	
+
 	var allKeys []*APIKey
 	for _, key := range am.auth0.apiKeyStore.keys {
 		allKeys = append(allKeys, key)
 	}
-	
+
 	return allKeys
 }
 
 // validateAPIKeySignature verifies API key signature
 func (am *AuthenticationManager) validateAPIKeySignature(r *http.Request, apiKey *APIKey) bool {
 	authHeader := r.Header.Get("Authorization")
-	
+
 	// Handle AWS Signature Version 4
 	if strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256 ") {
 		return am.validateAWSV4SignatureWithAPIKey(r, apiKey, authHeader)
 	}
-	
-	// Handle AWS Signature Version 2  
+
+	// Handle AWS Signature Version 2
 	if strings.HasPrefix(authHeader, "AWS ") {
 		return am.validateAWSV2SignatureWithAPIKey(r, apiKey, authHeader)
 	}
-	
+
 	return false
 }
 

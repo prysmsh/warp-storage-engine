@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -304,19 +305,21 @@ func Load(configFile string) (*Config, error) {
 
 	// For awsv4 auth type, populate Identity/Credential from nested aws_v4 structure if not already set
 	if cfg.Auth.Type == "awsv4" {
-		fmt.Printf("DEBUG: Auth type is awsv4, AWSV4 config detected\n")
+		logrus.Debug("Auth type is awsv4, AWSV4 config detected")
 		if cfg.Auth.AWSV4 != nil {
-			fmt.Printf("DEBUG: Found aws_v4 config - AccessKey: '%s', SecretKey: [REDACTED]\n", maskCredential(cfg.Auth.AWSV4.AccessKey))
+			logrus.WithField("access_key_prefix", maskCredential(cfg.Auth.AWSV4.AccessKey)).
+				Debug("Found aws_v4 config")
 			if cfg.Auth.Identity == "" && cfg.Auth.AWSV4.AccessKey != "" {
 				cfg.Auth.Identity = cfg.Auth.AWSV4.AccessKey
-				fmt.Printf("DEBUG: Set Identity to: '%s'\n", maskCredential(cfg.Auth.Identity))
+				logrus.WithField("identity_prefix", maskCredential(cfg.Auth.Identity)).
+					Debug("Set Identity from aws_v4 config")
 			}
 			if cfg.Auth.Credential == "" && cfg.Auth.AWSV4.SecretKey != "" {
 				cfg.Auth.Credential = cfg.Auth.AWSV4.SecretKey
-				fmt.Printf("DEBUG: Set Credential to: [REDACTED]\n")
+				logrus.Debug("Set Credential from aws_v4 config")
 			}
 		} else {
-			fmt.Printf("DEBUG: AWSV4 struct is nil\n")
+			logrus.Debug("AWSV4 struct is nil")
 		}
 	}
 
