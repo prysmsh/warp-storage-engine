@@ -54,6 +54,7 @@ func (am *AuthenticationManager) AuthenticateRequest(r *http.Request) (*AuthCont
 		return &AuthContext{
 			Authenticated: true,
 			AuthMethod:    "none",
+			IsAdmin:       true,
 		}, nil
 	}
 

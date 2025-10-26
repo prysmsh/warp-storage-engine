@@ -2,7 +2,7 @@
 storage:
   provider: filesystem
   filesystem:
-    base_dir: "/data"
+    base_dir: "/data/storage"
     bucket_mapping:
       warehouse: warehouse
       samples: samples
@@ -11,14 +11,12 @@ storage:
       ray: ray
       schemas: schemas
       vault: vault
+      kubeaccess-logs: kubeaccess-logs
+      qdrant: qdrant
 
 # SECURITY WARNING: This is a development configuration file
 auth:
-  type: awsv4
-  # DEVELOPMENT ONLY - replace with secure credentials in production
-  # Use environment variables: AUTH_IDENTITY and AUTH_CREDENTIAL
-  identity: ${AUTH_IDENTITY}
-  credential: ${AUTH_CREDENTIAL}
+  type: none
 
 # OPA Configuration (disabled by default, enable via environment variables)
 opa:
