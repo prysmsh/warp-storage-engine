@@ -293,6 +293,58 @@ func (fs *FileSystemBackend) GetObject(ctx context.Context, bucket, key string) 
 	}, nil
 }
 
+// ensureDirAll creates the directory and all parent directories. If a path
+// component exists as a file (e.g. S3/Vault 0-byte "directory marker" stored
+// as a file), it is replaced by a directory so nested objects can be written.
+func (fs *FileSystemBackend) ensureDirAll(dirPath string) error {
+	cleanBase := filepath.Clean(fs.baseDir)
+	cleanDir := filepath.Clean(dirPath)
+	if cleanDir == cleanBase {
+		return nil
+	}
+	if !strings.HasPrefix(cleanDir, cleanBase+string(filepath.Separator)) && cleanDir != cleanBase {
+		return fmt.Errorf("path outside base directory")
+	}
+	rel, err := filepath.Rel(cleanBase, cleanDir)
+	if err != nil {
+		return err
+	}
+	parts := strings.Split(rel, string(filepath.Separator))
+	current := cleanBase
+	for _, part := range parts {
+		if part == "." || part == ".." {
+			continue
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Stat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				if err := os.Mkdir(current, 0750); err != nil {
+					return fmt.Errorf("failed to create directory %s: %w", current, err)
+				}
+				continue
+			}
+			return err
+		}
+		if info.IsDir() {
+			continue
+		}
+		// Path component exists as a file (e.g. Vault S3 backend directory/metadata marker).
+		// Replace if empty or small (<= 512 bytes) so nested writes work; avoid replacing real data.
+		const maxReplaceSize = 512
+		if info.Size() > maxReplaceSize {
+			return fmt.Errorf("cannot create directory %s: not a directory (existing file has size %d)", current, info.Size())
+		}
+		if err := os.Remove(current); err != nil {
+			return fmt.Errorf("failed to remove file blocking directory %s: %w", current, err)
+		}
+		if err := os.Mkdir(current, 0750); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", current, err)
+		}
+	}
+	return nil
+}
+
 func (fs *FileSystemBackend) PutObject(ctx context.Context, bucket, key string, reader io.Reader, size int64, metadata map[string]string) error {
 	objectPath, err := fs.secureObjectPath(bucket, key)
 	if err != nil {
@@ -305,7 +357,7 @@ func (fs *FileSystemBackend) PutObject(ctx context.Context, bucket, key string, 
 
 	// If it's a directory marker, create a directory instead of a file
 	if isDirectoryMarker {
-		if err := os.MkdirAll(objectPath, 0750); err != nil {
+		if err := fs.ensureDirAll(objectPath); err != nil {
 			return fmt.Errorf("failed to create directory: %w", err)
 		}
 
@@ -325,9 +377,19 @@ func (fs *FileSystemBackend) PutObject(ctx context.Context, bucket, key string, 
 		return nil
 	}
 
-	// Regular file handling
-	if err := os.MkdirAll(filepath.Dir(objectPath), 0750); err != nil {
+	// Regular file handling: ensure parent dir exists (handles Vault S3 backend
+	// writing path components as files, which would make MkdirAll fail with "not a directory")
+	if err := fs.ensureDirAll(filepath.Dir(objectPath)); err != nil {
 		return fmt.Errorf("failed to create object directory: %w", err)
+	}
+
+	// If the object path exists as a directory (e.g. we previously replaced a small
+	// file with a dir for nested writes, but Vault now writes a file at this key),
+	// remove it so we can create the file.
+	if info, err := os.Stat(objectPath); err == nil && info.IsDir() {
+		if err := os.RemoveAll(objectPath); err != nil {
+			return fmt.Errorf("failed to remove directory blocking object path: %w", err)
+		}
 	}
 
 	file, err := os.Create(objectPath) //nolint:gosec // objectPath is controlled
@@ -583,8 +645,8 @@ func (fs *FileSystemBackend) CompleteMultipartUpload(ctx context.Context, bucket
 		return fmt.Errorf("invalid object path parameters: %w", err)
 	}
 
-	// Ensure object directory exists
-	if err := os.MkdirAll(filepath.Dir(objectPath), 0750); err != nil {
+	// Ensure object directory exists (handles Vault S3 path-as-file conflict)
+	if err := fs.ensureDirAll(filepath.Dir(objectPath)); err != nil {
 		return fmt.Errorf("failed to create object directory: %w", err)
 	}
 

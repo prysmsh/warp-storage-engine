@@ -12,6 +12,7 @@ storage:
       schemas: schemas
       vault: vault
       kubeaccess-logs: kubeaccess-logs
+      prysm-logs: prysm-logs
       qdrant: qdrant
 
 # SECURITY WARNING: This is a development configuration file
