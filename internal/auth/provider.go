@@ -20,6 +20,19 @@ type Provider interface {
 	GetSecretKey(accessKey string) (string, error)
 }
 
+// UserContext holds tenant-specific user information resolved after authentication
+type UserContext struct {
+	AccessKey string
+	OrgID     string
+	Role      string
+}
+
+// MultiTenantProvider extends Provider with per-user context resolution
+type MultiTenantProvider interface {
+	Provider
+	GetUserContext(accessKey string) (*UserContext, error)
+}
+
 // FastAWSProvider provides a caching layer around a fully validated AWS provider.
 type FastAWSProvider struct {
 	delegate Provider
@@ -114,6 +127,9 @@ func NewProvider(cfg config.AuthConfig) (Provider, error) {
 	case "database":
 		// Database provider is initialized separately with DB connection
 		return nil, fmt.Errorf("database auth provider must be initialized with NewDatabaseProvider")
+	case "vault_multiuser":
+		// Multi-tenant per-user Vault credential lookup
+		return NewVaultMultiUserProvider(cfg)
 	case "multi", "aws-multi":
 		// Support multiple AWS auth methods simultaneously
 		return NewMultiProvider(cfg)
@@ -308,7 +324,13 @@ func (p *AWSV4Provider) Authenticate(r *http.Request) error {
 	}
 
 	// Create canonical request
-	canonicalURI := r.URL.Path
+	// Use RawPath (percent-encoded) when available, since the AWS SDK computes
+	// the signature using the encoded URI. Falling back to Path handles cases
+	// where RawPath is empty (no encoding needed).
+	canonicalURI := r.URL.RawPath
+	if canonicalURI == "" {
+		canonicalURI = r.URL.Path
+	}
 	if canonicalURI == "" {
 		canonicalURI = "/"
 	}

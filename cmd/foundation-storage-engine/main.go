@@ -69,7 +69,11 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 	logrus.SetLevel(level)
 
-	logrus.SetFormatter(&logrus.JSONFormatter{})
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006/01/02 - 15:04:05",
+		ForceColors:     true,
+	})
 
 	logrus.WithFields(logrus.Fields{
 		"version": version,

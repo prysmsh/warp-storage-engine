@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/einyx/foundation-storage-engine/internal/auth"
 	"github.com/einyx/foundation-storage-engine/internal/config"
 	"github.com/einyx/foundation-storage-engine/internal/database"
 	"github.com/spf13/cobra"
@@ -28,6 +32,7 @@ func main() {
 		Use:   "create",
 		Short: "Create a new user",
 		Run: func(cmd *cobra.Command, args []string) {
+			cfg := loadConfig(configFile)
 			db, um := setupDatabase(configFile, dbConfig)
 			defer db.Close()
 
@@ -35,6 +40,14 @@ func main() {
 			password, _ := cmd.Flags().GetString("password")
 			accessKey, _ := cmd.Flags().GetString("access-key")
 			secretKey, _ := cmd.Flags().GetString("secret-key")
+			orgSlug, _ := cmd.Flags().GetString("org")
+			role, _ := cmd.Flags().GetString("role")
+
+			// If org is specified and multitenancy vault is enabled, use Vault for secret storage
+			if orgSlug != "" && cfg != nil && cfg.Multitenancy.Enabled {
+				createMultiTenantUser(cfg, db, email, orgSlug, role)
+				return
+			}
 
 			var user *database.User
 			var err error
@@ -62,6 +75,8 @@ func main() {
 	createCmd.Flags().String("password", "", "User password (will be hashed)")
 	createCmd.Flags().String("access-key", "", "Custom access key")
 	createCmd.Flags().String("secret-key", "", "Custom secret key")
+	createCmd.Flags().String("org", "", "Organization slug (for multi-tenant mode)")
+	createCmd.Flags().String("role", "member", "User role: admin, member, readonly")
 	createCmd.MarkFlagRequired("email")
 
 	// List users command
@@ -71,6 +86,39 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			db, um := setupDatabase(configFile, dbConfig)
 			defer db.Close()
+
+			orgSlug, _ := cmd.Flags().GetString("org")
+
+			if orgSlug != "" {
+				// List users for a specific org
+				org, err := db.GetOrgBySlug(orgSlug)
+				if err != nil || org == nil {
+					log.Fatalf("Organization '%s' not found", orgSlug)
+				}
+				users, err := db.GetUsersByOrgID(org.ID)
+				if err != nil {
+					log.Fatalf("Failed to list users: %v", err)
+				}
+
+				fmt.Printf("%-20s %-30s %-10s %-8s %-20s %-20s\n", "Access Key", "Email", "Role", "Active", "Created", "Last Login")
+				fmt.Println(strings.Repeat("-", 110))
+
+				for _, user := range users {
+					lastLogin := "Never"
+					if user.LastLogin != nil {
+						lastLogin = user.LastLogin.Format("2006-01-02 15:04:05")
+					}
+					fmt.Printf("%-20s %-30s %-10s %-8v %-20s %-20s\n",
+						user.AccessKey,
+						user.Email,
+						user.Role,
+						user.Active,
+						user.CreatedAt.Format("2006-01-02 15:04:05"),
+						lastLogin,
+					)
+				}
+				return
+			}
 
 			users, err := um.ListUsers()
 			if err != nil {
@@ -96,6 +144,8 @@ func main() {
 		},
 	}
 
+	listCmd.Flags().String("org", "", "Organization slug (list users for specific org)")
+
 	// Disable user command
 	var disableCmd = &cobra.Command{
 		Use:   "disable",
@@ -105,7 +155,7 @@ func main() {
 			defer db.Close()
 
 			accessKey, _ := cmd.Flags().GetString("access-key")
-			
+
 			err := um.DisableUser(accessKey)
 			if err != nil {
 				log.Fatalf("Failed to disable user: %v", err)
@@ -127,7 +177,7 @@ func main() {
 			defer db.Close()
 
 			accessKey, _ := cmd.Flags().GetString("access-key")
-			
+
 			err := um.EnableUser(accessKey)
 			if err != nil {
 				log.Fatalf("Failed to enable user: %v", err)
@@ -151,7 +201,7 @@ func main() {
 			accessKey, _ := cmd.Flags().GetString("access-key")
 			bucket, _ := cmd.Flags().GetString("bucket")
 			permissions, _ := cmd.Flags().GetString("permissions")
-			
+
 			err := um.GrantBucketPermission(accessKey, bucket, permissions)
 			if err != nil {
 				log.Fatalf("Failed to grant permission: %v", err)
@@ -177,7 +227,7 @@ func main() {
 
 			accessKey, _ := cmd.Flags().GetString("access-key")
 			bucket, _ := cmd.Flags().GetString("bucket")
-			
+
 			err := um.RevokeBucketPermission(accessKey, bucket)
 			if err != nil {
 				log.Fatalf("Failed to revoke permission: %v", err)
@@ -192,12 +242,135 @@ func main() {
 	revokeCmd.MarkFlagRequired("access-key")
 	revokeCmd.MarkFlagRequired("bucket")
 
-	rootCmd.AddCommand(createCmd, listCmd, disableCmd, enableCmd, grantCmd, revokeCmd)
+	// Create organization command
+	var createOrgCmd = &cobra.Command{
+		Use:   "create-org",
+		Short: "Create a new organization",
+		Run: func(cmd *cobra.Command, args []string) {
+			db, _ := setupDatabase(configFile, dbConfig)
+			defer db.Close()
+
+			name, _ := cmd.Flags().GetString("name")
+			slug, _ := cmd.Flags().GetString("slug")
+
+			org := &database.Organization{
+				Name:     name,
+				Slug:     slug,
+				Active:   true,
+				Settings: "{}",
+			}
+
+			if err := db.CreateOrganization(org); err != nil {
+				log.Fatalf("Failed to create organization: %v", err)
+			}
+
+			fmt.Printf("Organization created successfully:\n")
+			fmt.Printf("ID: %s\n", org.ID)
+			fmt.Printf("Name: %s\n", org.Name)
+			fmt.Printf("Slug: %s\n", org.Slug)
+		},
+	}
+
+	createOrgCmd.Flags().String("name", "", "Organization name")
+	createOrgCmd.Flags().String("slug", "", "Organization slug (URL-safe identifier)")
+	createOrgCmd.MarkFlagRequired("name")
+	createOrgCmd.MarkFlagRequired("slug")
+
+	// List organizations command
+	var listOrgsCmd = &cobra.Command{
+		Use:   "list-orgs",
+		Short: "List all organizations",
+		Run: func(cmd *cobra.Command, args []string) {
+			db, _ := setupDatabase(configFile, dbConfig)
+			defer db.Close()
+
+			orgs, err := db.ListOrganizations()
+			if err != nil {
+				log.Fatalf("Failed to list organizations: %v", err)
+			}
+
+			fmt.Printf("%-36s %-20s %-15s %-8s %-20s\n", "ID", "Name", "Slug", "Active", "Created")
+			fmt.Println(strings.Repeat("-", 100))
+
+			for _, org := range orgs {
+				fmt.Printf("%-36s %-20s %-15s %-8v %-20s\n",
+					org.ID,
+					org.Name,
+					org.Slug,
+					org.Active,
+					org.CreatedAt.Format("2006-01-02 15:04:05"),
+				)
+			}
+		},
+	}
+
+	// Create bucket mapping command
+	var createBucketMappingCmd = &cobra.Command{
+		Use:   "create-bucket-mapping",
+		Short: "Create a virtual bucket mapping for an organization",
+		Run: func(cmd *cobra.Command, args []string) {
+			db, _ := setupDatabase(configFile, dbConfig)
+			defer db.Close()
+
+			orgSlug, _ := cmd.Flags().GetString("org")
+			virtual, _ := cmd.Flags().GetString("virtual")
+			physical, _ := cmd.Flags().GetString("physical")
+			prefix, _ := cmd.Flags().GetString("prefix")
+
+			org, err := db.GetOrgBySlug(orgSlug)
+			if err != nil || org == nil {
+				log.Fatalf("Organization '%s' not found", orgSlug)
+			}
+
+			if prefix == "" {
+				prefix = orgSlug + "/"
+			}
+
+			mapping := &database.OrgBucketMapping{
+				OrgID:          org.ID,
+				VirtualBucket:  virtual,
+				PhysicalBucket: physical,
+				Prefix:         prefix,
+			}
+
+			if err := db.CreateBucketMapping(mapping); err != nil {
+				log.Fatalf("Failed to create bucket mapping: %v", err)
+			}
+
+			fmt.Printf("Bucket mapping created:\n")
+			fmt.Printf("Org: %s\n", orgSlug)
+			fmt.Printf("Virtual: %s\n", virtual)
+			fmt.Printf("Physical: %s\n", physical)
+			fmt.Printf("Prefix: %s\n", prefix)
+		},
+	}
+
+	createBucketMappingCmd.Flags().String("org", "", "Organization slug")
+	createBucketMappingCmd.Flags().String("virtual", "", "Virtual bucket name")
+	createBucketMappingCmd.Flags().String("physical", "", "Physical bucket name")
+	createBucketMappingCmd.Flags().String("prefix", "", "Key prefix (default: org-slug/)")
+	createBucketMappingCmd.MarkFlagRequired("org")
+	createBucketMappingCmd.MarkFlagRequired("virtual")
+	createBucketMappingCmd.MarkFlagRequired("physical")
+
+	rootCmd.AddCommand(createCmd, listCmd, disableCmd, enableCmd, grantCmd, revokeCmd,
+		createOrgCmd, listOrgsCmd, createBucketMappingCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func loadConfig(configFile string) *config.Config {
+	if configFile == "" {
+		return nil
+	}
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		return nil
+	}
+	return cfg
 }
 
 func setupDatabase(configFile string, dbConfig database.Config) (*database.DB, *database.UserManager) {
@@ -224,4 +397,89 @@ func setupDatabase(configFile string, dbConfig database.Config) (*database.DB, *
 	}
 
 	return db, database.NewUserManager(db)
+}
+
+// createMultiTenantUser creates a user in multi-tenant mode:
+// generates access/secret key, stores secret in Vault, stores user metadata in DB
+func createMultiTenantUser(cfg *config.Config, db *database.DB, email, orgSlug, role string) {
+	org, err := db.GetOrgBySlug(orgSlug)
+	if err != nil || org == nil {
+		log.Fatalf("Organization '%s' not found", orgSlug)
+	}
+
+	if role == "" {
+		role = "member"
+	}
+
+	// Generate credentials
+	accessKey, err := generateAccessKeyForCLI()
+	if err != nil {
+		log.Fatalf("Failed to generate access key: %v", err)
+	}
+
+	secretKey, err := generateSecretKeyForCLI()
+	if err != nil {
+		log.Fatalf("Failed to generate secret key: %v", err)
+	}
+
+	// Store secret in Vault
+	vaultProvider, err := auth.NewVaultMultiUserProviderWithConfig(cfg.Auth, cfg.Multitenancy)
+	if err != nil {
+		log.Fatalf("Failed to initialize Vault provider: %v", err)
+	}
+
+	if err := vaultProvider.StoreCredential(accessKey, secretKey, org.ID); err != nil {
+		log.Fatalf("Failed to store credential in Vault: %v", err)
+	}
+
+	// Store user metadata in DB
+	user := &database.User{
+		Email:     email,
+		AccessKey: accessKey,
+		SecretKey: "vault-managed",
+		Active:    true,
+		OrgID:     &org.ID,
+		Role:      role,
+	}
+
+	if err := db.CreateUser(user); err != nil {
+		// Clean up Vault credential on failure
+		_ = vaultProvider.DeleteCredential(accessKey)
+		log.Fatalf("Failed to create user: %v", err)
+	}
+
+	fmt.Printf("User created successfully:\n")
+	fmt.Printf("Email: %s\n", email)
+	fmt.Printf("Access Key: %s\n", accessKey)
+	fmt.Printf("Secret Key: %s\n", secretKey)
+	fmt.Printf("Organization: %s\n", orgSlug)
+	fmt.Printf("Role: %s\n", role)
+	fmt.Println("\nIMPORTANT: Save the secret key now. It will not be shown again.")
+}
+
+func generateAccessKeyForCLI() (string, error) {
+	bytes := make([]byte, 20)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	key := base64.URLEncoding.EncodeToString(bytes)
+	key = strings.ReplaceAll(key, "-", "")
+	key = strings.ReplaceAll(key, "_", "")
+	key = strings.ToUpper(key)
+	if len(key) > 20 {
+		key = key[:20]
+	}
+	return key, nil
+}
+
+func generateSecretKeyForCLI() (string, error) {
+	bytes := make([]byte, 30)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	key := base64.URLEncoding.EncodeToString(bytes)
+	if len(key) > 40 {
+		key = key[:40]
+	}
+	return key, nil
 }

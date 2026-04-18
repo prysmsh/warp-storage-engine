@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/einyx/foundation-storage-engine/internal/auth"
+	"github.com/einyx/foundation-storage-engine/internal/database"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,8 +70,27 @@ func AdminAuthMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// BucketAccessMiddleware controls bucket access permissions
-func BucketAccessMiddleware() func(http.Handler) http.Handler {
+// BucketAccessMiddleware controls bucket access permissions.
+// When multitenancy is enabled and a db is provided, it enforces org-scoped
+// bucket access by checking that the requested bucket belongs to the user's org.
+// Both parameters are optional for backward compatibility.
+func BucketAccessMiddleware(db ...interface{}) func(http.Handler) http.Handler {
+	var userStore database.UserStore
+	var multitenancyEnabled bool
+	if len(db) >= 1 && db[0] != nil {
+		if us, ok := db[0].(database.UserStore); ok {
+			userStore = us
+		}
+	}
+	if len(db) >= 2 {
+		if b, ok := db[1].(bool); ok {
+			multitenancyEnabled = b
+		}
+	}
+	return bucketAccessMiddleware(userStore, multitenancyEnabled)
+}
+
+func bucketAccessMiddleware(db database.UserStore, multitenancyEnabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Extract bucket name from URL path
@@ -96,8 +116,23 @@ func BucketAccessMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			// For non-admin users, allow access to any bucket that exists
-			// This allows dynamic bucket creation without hardcoded lists
+			// When multitenancy is enabled, verify the bucket belongs to the user's org
+			if multitenancyEnabled && db != nil {
+				orgID := GetOrgID(r.Context())
+				if orgID != "" {
+					mapping, err := db.GetBucketMapping(orgID, bucket)
+					if err != nil || mapping == nil {
+						logrus.WithFields(logrus.Fields{
+							"bucket": bucket,
+							"org_id": orgID,
+							"user":   userSub,
+						}).Warn("Bucket access denied: no mapping found for org")
+						http.Error(w, "Forbidden: bucket not accessible", http.StatusForbidden)
+						return
+					}
+				}
+			}
+
 			logrus.WithFields(logrus.Fields{
 				"bucket":   bucket,
 				"user_sub": userSub,

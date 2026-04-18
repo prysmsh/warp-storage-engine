@@ -124,7 +124,21 @@ func (am *AuthenticationManager) AuthenticateRequest(r *http.Request) (*AuthCont
 		}
 		authCtx.Authenticated = true
 		authCtx.AuthMethod = "aws_signature"
-		authCtx.IsAdmin = true
+
+		// Resolve user role from multi-tenant provider if available
+		if mtProvider, ok := am.awsAuth.(auth.MultiTenantProvider); ok {
+			accessKey := am.extractAccessKeyFromAuth(r)
+			if accessKey != "" {
+				if uctx, err := mtProvider.GetUserContext(accessKey); err == nil && uctx != nil {
+					authCtx.UserSub = uctx.AccessKey
+					// IsAdmin is determined by org role, not blanket true
+					authCtx.IsAdmin = (uctx.Role == "admin")
+				}
+			}
+		} else {
+			// Legacy single-admin mode: all AWS-authenticated users are admin
+			authCtx.IsAdmin = true
+		}
 	}
 
 	return authCtx, nil
@@ -516,6 +530,21 @@ type AuthenticationError struct {
 
 func (e *AuthenticationError) Error() string {
 	return e.Message
+}
+
+// extractAccessKeyFromAuth extracts the access key from any AWS auth header
+func (am *AuthenticationManager) extractAccessKeyFromAuth(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "AWS4-HMAC-SHA256 ") {
+		return am.extractAccessKeyFromV4Auth(authHeader)
+	}
+	if strings.HasPrefix(authHeader, "AWS ") {
+		parts := strings.SplitN(authHeader[4:], ":", 2)
+		if len(parts) == 2 {
+			return parts[0]
+		}
+	}
+	return ""
 }
 
 // isAdminUser checks if user has admin role

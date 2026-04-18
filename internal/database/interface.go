@@ -9,6 +9,20 @@ type UserStore interface {
 	GetUserPermissions(userID int) ([]UserPermission, error)
 	CreateUser(user *User) error
 	Close() error
+
+	// Organization operations
+	CreateOrganization(org *Organization) error
+	GetOrgBySlug(slug string) (*Organization, error)
+	GetOrgByID(id string) (*Organization, error)
+	ListOrganizations() ([]Organization, error)
+	GetUsersByOrgID(orgID string) ([]User, error)
+	DeleteUserByID(userID int) error
+
+	// Bucket mapping operations
+	CreateBucketMapping(mapping *OrgBucketMapping) error
+	GetBucketMappingsByOrgID(orgID string) ([]OrgBucketMapping, error)
+	GetBucketMapping(orgID, virtualBucket string) (*OrgBucketMapping, error)
+	DeleteBucketMapping(orgID, virtualBucket string) error
 }
 
 // UserManagerStore defines the interface for UserManager (includes Exec and Select)

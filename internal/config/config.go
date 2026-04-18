@@ -13,20 +13,21 @@ import (
 
 // Config represents the main configuration structure for the S3 proxy
 type Config struct {
-	Server     ServerConfig     `mapstructure:"server"`
-	S3         S3Config         `mapstructure:"s3"`
-	Storage    StorageConfig    `mapstructure:"storage"`
-	Auth       AuthConfig       `mapstructure:"auth"`
-	Database   DatabaseConfig   `mapstructure:"database"`
-	Encryption EncryptionConfig `mapstructure:"encryption"`
-	Chunking   ChunkingConfig   `mapstructure:"chunking"`
-	UI         UIConfig         `mapstructure:"ui"`
-	Auth0      Auth0Config      `mapstructure:"auth0"`
-	VirusTotal VirusTotalConfig `mapstructure:"virustotal"`
-	ShareLinks ShareLinksConfig `mapstructure:"share_links"`
-	Monitoring MonitoringConfig `mapstructure:"monitoring"`
-	Sentry     SentryConfig     `mapstructure:"sentry"`
-	OPA        OPAConfig        `mapstructure:"opa"`
+	Server        ServerConfig        `mapstructure:"server"`
+	S3            S3Config            `mapstructure:"s3"`
+	Storage       StorageConfig       `mapstructure:"storage"`
+	Auth          AuthConfig          `mapstructure:"auth"`
+	Database      DatabaseConfig      `mapstructure:"database"`
+	Encryption    EncryptionConfig    `mapstructure:"encryption"`
+	Chunking      ChunkingConfig      `mapstructure:"chunking"`
+	UI            UIConfig            `mapstructure:"ui"`
+	Auth0         Auth0Config         `mapstructure:"auth0"`
+	VirusTotal    VirusTotalConfig    `mapstructure:"virustotal"`
+	ShareLinks    ShareLinksConfig    `mapstructure:"share_links"`
+	Monitoring    MonitoringConfig    `mapstructure:"monitoring"`
+	Sentry        SentryConfig        `mapstructure:"sentry"`
+	OPA           OPAConfig           `mapstructure:"opa"`
+	Multitenancy  MultitenancyConfig  `mapstructure:"multitenancy"`
 }
 
 // ServerConfig contains HTTP server configuration settings
@@ -451,6 +452,21 @@ type OPAConfig struct {
 	Enabled bool          `mapstructure:"enabled" envconfig:"OPA_ENABLED" default:"false"`
 	URL     string        `mapstructure:"url" envconfig:"OPA_URL" default:"http://localhost:8181"`
 	Timeout time.Duration `mapstructure:"timeout" envconfig:"OPA_TIMEOUT" default:"5s"`
+}
+
+// MultitenancyConfig contains multi-tenancy configuration
+type MultitenancyConfig struct {
+	Enabled               bool                   `mapstructure:"enabled" envconfig:"MT_ENABLED" default:"false"`
+	DefaultPhysicalBucket string                  `mapstructure:"default_physical_bucket" envconfig:"MT_DEFAULT_PHYSICAL_BUCKET" default:"fse-storage"`
+	Vault                 *VaultMultiTenantConfig `mapstructure:"vault"`
+}
+
+// VaultMultiTenantConfig contains Vault configuration for multi-tenant credential storage
+type VaultMultiTenantConfig struct {
+	MountPath string        `mapstructure:"mount_path" envconfig:"MT_VAULT_MOUNT_PATH" default:"secret"`
+	BasePath  string        `mapstructure:"base_path" envconfig:"MT_VAULT_BASE_PATH" default:"fse/users"`
+	CacheSize int           `mapstructure:"cache_size" envconfig:"MT_VAULT_CACHE_SIZE" default:"10000"`
+	CacheTTL  time.Duration `mapstructure:"cache_ttl" envconfig:"MT_VAULT_CACHE_TTL" default:"5m"`
 }
 
 // maskCredential masks sensitive credential values for safe logging

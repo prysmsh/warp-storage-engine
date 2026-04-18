@@ -47,6 +47,74 @@ func (m *MockUserStore) Close() error {
 	return nil
 }
 
+func (m *MockUserStore) CreateOrganization(org *database.Organization) error {
+	args := m.Called(org)
+	return args.Error(0)
+}
+
+func (m *MockUserStore) GetOrgBySlug(slug string) (*database.Organization, error) {
+	args := m.Called(slug)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*database.Organization), args.Error(1)
+}
+
+func (m *MockUserStore) GetOrgByID(id string) (*database.Organization, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*database.Organization), args.Error(1)
+}
+
+func (m *MockUserStore) ListOrganizations() ([]database.Organization, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]database.Organization), args.Error(1)
+}
+
+func (m *MockUserStore) GetUsersByOrgID(orgID string) ([]database.User, error) {
+	args := m.Called(orgID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]database.User), args.Error(1)
+}
+
+func (m *MockUserStore) DeleteUserByID(userID int) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
+func (m *MockUserStore) CreateBucketMapping(mapping *database.OrgBucketMapping) error {
+	args := m.Called(mapping)
+	return args.Error(0)
+}
+
+func (m *MockUserStore) GetBucketMappingsByOrgID(orgID string) ([]database.OrgBucketMapping, error) {
+	args := m.Called(orgID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]database.OrgBucketMapping), args.Error(1)
+}
+
+func (m *MockUserStore) GetBucketMapping(orgID, virtualBucket string) (*database.OrgBucketMapping, error) {
+	args := m.Called(orgID, virtualBucket)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*database.OrgBucketMapping), args.Error(1)
+}
+
+func (m *MockUserStore) DeleteBucketMapping(orgID, virtualBucket string) error {
+	args := m.Called(orgID, virtualBucket)
+	return args.Error(0)
+}
+
 func TestDatabaseProvider_AuthenticateBasic(t *testing.T) {
 	// Create a mock database
 	mockDB := &MockUserStore{}

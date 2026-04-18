@@ -62,6 +62,7 @@ type Server struct {
 	auth0            *Auth0Handler
 	authManager      *AuthenticationManager
 	shareLinkHandler *ShareLinkHandler
+	tenantHandlers   *TenantHandlers
 	db               *database.DB // Database connection for auth
 	scanner          *virustotal.Scanner
 	shuttingDown     int32 // atomic flag for shutdown state
@@ -140,12 +141,20 @@ func NewServer(cfg *config.Config) (*Server, error) {
 			authProvider = baseProvider
 			logrus.Info("Database authentication provider initialized")
 		}
+	} else if cfg.Auth.Type == "vault_multiuser" && cfg.Multitenancy.Enabled {
+		// Multi-tenant Vault provider with dedicated config
+		vaultProvider, err := auth.NewVaultMultiUserProviderWithConfig(cfg.Auth, cfg.Multitenancy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create vault multi-user provider: %w", err)
+		}
+		authProvider = vaultProvider
+		logrus.Info("Vault multi-user authentication provider initialized")
 	} else {
 		authProvider, err = auth.NewProviderWithOPA(cfg.Auth, cfg.OPA)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create auth provider: %w", err)
 		}
-		
+
 		if cfg.OPA.Enabled {
 			logrus.WithField("opa_url", cfg.OPA.URL).Info("Authentication provider initialized with OPA authorization")
 		} else {
@@ -182,6 +191,35 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		logrus.Info("VirusTotal scanning enabled")
 	}
 
+	// Initialize multi-tenancy if enabled
+	if cfg.Multitenancy.Enabled {
+		if s.db == nil {
+			// Multi-tenancy requires a database connection
+			dbConfig := database.Config{
+				Driver:           cfg.Database.Driver,
+				ConnectionString: cfg.Database.ConnectionString,
+				MaxOpenConns:     cfg.Database.MaxOpenConns,
+				MaxIdleConns:     cfg.Database.MaxIdleConns,
+				ConnMaxLifetime:  cfg.Database.ConnMaxLifetime,
+			}
+			s.db, err = database.NewConnection(dbConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create database connection for multitenancy: %w", err)
+			}
+		}
+
+		// If auth type is vault_multiuser, set up tenant handlers with vault provider
+		if vaultProvider, ok := s.auth.(*auth.VaultMultiUserProvider); ok {
+			s.tenantHandlers = NewTenantHandlers(s.db, vaultProvider, cfg.Multitenancy.DefaultPhysicalBucket)
+		} else {
+			s.tenantHandlers = NewTenantHandlers(s.db, nil, cfg.Multitenancy.DefaultPhysicalBucket)
+		}
+
+		// Wrap storage backend with tenant-aware layer
+		s.storage = storage.NewTenantAwareBackend(s.storage, s.db)
+		logrus.Info("Multi-tenancy initialized with tenant-aware storage")
+	}
+
 	s.s3Handler = s3.NewHandler(s.storage, s.auth, cfg.S3, cfg.Chunking)
 	s.s3Handler.SetScanner(s.scanner)
 
@@ -191,8 +229,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	s.setupRoutes()
 
 	// Apply middleware to all routes
+	s.router.Use(middleware.RequestLogger(middleware.DefaultLoggerConfig()))
 	s.router.Use(s.metrics.Middleware())
-	
+
 	// Apply Sentry middleware if enabled
 	if s.config.Sentry.Enabled {
 		s.router.Use(middleware.SentryRecoveryMiddleware())
@@ -363,6 +402,19 @@ func (s *Server) setupRoutes() {
 		s.router.HandleFunc("/api/admin/group-mappings", adminHandlers.CreateGroupMappingHandler).Methods("POST")
 		s.router.HandleFunc("/api/admin/group-mappings", adminHandlers.DeleteGroupMappingHandler).Methods("DELETE")
 		s.router.HandleFunc("/api/admin/effective-roles", adminHandlers.GetEffectiveRolesHandler).Methods("GET")
+	}
+
+	// Register tenant management API routes if multitenancy is enabled
+	if s.config.Multitenancy.Enabled && s.tenantHandlers != nil {
+		logrus.Info("Multi-tenancy enabled - registering tenant API routes")
+		s.router.HandleFunc("/api/orgs", s.tenantHandlers.CreateOrgHandler).Methods("POST")
+		s.router.HandleFunc("/api/orgs/{slug}", s.tenantHandlers.GetOrgHandler).Methods("GET")
+		s.router.HandleFunc("/api/orgs/{slug}/users", s.tenantHandlers.AddUserToOrgHandler).Methods("POST")
+		s.router.HandleFunc("/api/orgs/{slug}/users", s.tenantHandlers.ListOrgUsersHandler).Methods("GET")
+		s.router.HandleFunc("/api/orgs/{slug}/users/{id}", s.tenantHandlers.RemoveUserFromOrgHandler).Methods("DELETE")
+		s.router.HandleFunc("/api/orgs/{slug}/buckets", s.tenantHandlers.CreateBucketMappingHandler).Methods("POST")
+		s.router.HandleFunc("/api/orgs/{slug}/buckets", s.tenantHandlers.ListBucketMappingsHandler).Methods("GET")
+		s.router.HandleFunc("/api/orgs/{slug}/buckets/{name}", s.tenantHandlers.DeleteBucketMappingHandler).Methods("DELETE")
 	}
 
 	// Register auth validation endpoint
