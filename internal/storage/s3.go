@@ -854,7 +854,33 @@ func (s *S3Backend) PutObject(ctx context.Context, bucket, key string, reader io
 	}
 
 	var body io.ReadSeeker
-	if rs, ok := reader.(io.ReadSeeker); ok {
+	var actualSize int64 = size
+
+	// Special handling for SmartChunkDecoder to get accurate size.
+	// Chunked-transfer clients often send a Content-Length/Decoded-Content-Length
+	// that doesn't match the actual decoded byte count; buffer once so the
+	// backend PUT carries the correct Content-Length.
+	if smartDecoder, ok := reader.(*SmartChunkDecoder); ok && !smartDecoder.IsRawFallback() {
+		logrus.WithFields(logrus.Fields{
+			"key":          key,
+			"originalSize": size,
+		}).Info("Detected chunked transfer - buffering to get accurate size")
+
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return fmt.Errorf("failed to read chunked data: %w", err)
+		}
+
+		actualSize = int64(len(data))
+		body = bytes.NewReader(data)
+
+		logrus.WithFields(logrus.Fields{
+			"key":          key,
+			"originalSize": size,
+			"actualSize":   actualSize,
+			"isAvro":       strings.HasSuffix(key, ".avro"),
+		}).Info("Updated size from chunked decoder for accurate Content-Length")
+	} else if rs, ok := reader.(io.ReadSeeker); ok {
 		body = rs
 	} else {
 		// Handle different size scenarios
@@ -901,7 +927,7 @@ func (s *S3Backend) PutObject(ctx context.Context, bucket, key string, reader io
 		Bucket:        aws.String(realBucket),
 		Key:           aws.String(realKey),
 		Body:          body,
-		ContentLength: aws.Int64(size),
+		ContentLength: aws.Int64(actualSize),
 		// Disable automatic checksum calculation by the SDK
 		// This prevents checksum validation errors when we modify content
 		ChecksumAlgorithm: nil,

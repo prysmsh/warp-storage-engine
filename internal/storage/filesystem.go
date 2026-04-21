@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"crypto/md5" //nolint:gosec // MD5 is required for S3 ETag compatibility
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,12 +23,37 @@ type FileSystemBackend struct {
 	bufferPool sync.Pool
 }
 
+// generateFileSystemETag creates a valid S3-compatible ETag from file info
+func generateFileSystemETag(info os.FileInfo) string {
+	data := fmt.Sprintf("file_%s_%d_%d", info.Name(), info.Size(), info.ModTime().UnixNano())
+	hash := md5.Sum([]byte(data)) //nolint:gosec // MD5 is required for S3 ETag compatibility
+	return hex.EncodeToString(hash[:])
+}
+
 func validateBucketName(bucket string) error {
 	return security.ValidateBucketName(bucket)
 }
 
 func validateObjectKey(key string) error {
 	return security.ValidateObjectKey(key)
+}
+
+// validateUploadID validates an upload ID for safe use in filesystem paths.
+// Upload IDs contain hex chars, digits, hyphens, and potentially A-Z, _, ., ~
+// but must not contain path traversal sequences or control characters.
+func validateUploadID(uploadID string) error {
+	if uploadID == "" {
+		return security.ErrEmptyPath
+	}
+	if strings.Contains(uploadID, "..") || strings.Contains(uploadID, "/") || strings.Contains(uploadID, "\\") {
+		return security.ErrInvalidPath
+	}
+	for _, ch := range uploadID {
+		if ch < 32 {
+			return security.ErrInvalidPath
+		}
+	}
+	return nil
 }
 
 func (fs *FileSystemBackend) secureBucketPath(bucket string) (string, error) {
@@ -42,7 +69,7 @@ func (fs *FileSystemBackend) secureUploadPath(bucket, uploadID string) (string, 
 	if err := validateBucketName(bucket); err != nil {
 		return "", fmt.Errorf("invalid bucket name: %w", err)
 	}
-	if err := validateBucketName(uploadID); err != nil { // uploadID follows bucket naming rules
+	if err := validateUploadID(uploadID); err != nil {
 		return "", fmt.Errorf("invalid upload ID: %w", err)
 	}
 	
@@ -235,7 +262,7 @@ func (fs *FileSystemBackend) ListObjectsWithDelimiter(ctx context.Context, bucke
 			result.Contents = append(result.Contents, ObjectInfo{
 				Key:          key,
 				Size:         info.Size(),
-				ETag:         fmt.Sprintf("\"%x\"", info.ModTime().UnixNano()),
+				ETag:         fmt.Sprintf("\"%s\"", generateFileSystemETag(info)),
 				LastModified: info.ModTime(),
 				ContentType:  contentType,
 				Metadata:     metadata,
@@ -287,7 +314,7 @@ func (fs *FileSystemBackend) GetObject(ctx context.Context, bucket, key string) 
 		Body:         file,
 		ContentType:  contentType,
 		Size:         info.Size(),
-		ETag:         fmt.Sprintf("\"%x\"", info.ModTime().UnixNano()),
+		ETag:         fmt.Sprintf("\"%s\"", generateFileSystemETag(info)),
 		LastModified: info.ModTime(),
 		Metadata:     metadata,
 	}, nil
@@ -408,6 +435,14 @@ func (fs *FileSystemBackend) PutObject(ctx context.Context, bucket, key string, 
 		return fmt.Errorf("failed to write object data: %w", err)
 	}
 
+	// Flush to stable storage so data survives container restarts.
+	// Without this, a crash between Close() and kernel writeback
+	// leaves truncated/empty files — a known cause of Iceberg
+	// metadata corruption ("NotFoundException" for .avro/.json files).
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("failed to sync object data: %w", err)
+	}
+
 	// Save metadata to .meta file if provided
 	if len(metadata) > 0 {
 		metadataPath := objectPath + ".meta"
@@ -434,17 +469,20 @@ func (fs *FileSystemBackend) DeleteObject(ctx context.Context, bucket, key strin
 	isDirectoryMarker := strings.HasSuffix(key, "/")
 
 	if isDirectoryMarker {
-		// For directory markers, remove the directory and all empty parent directories
-		err = os.RemoveAll(objectPath)
+		// For directory markers, only remove the directory if it's empty.
+		// NEVER use os.RemoveAll on user data — it would wipe Iceberg metadata, etc.
+		err = os.Remove(objectPath)
 		if os.IsNotExist(err) {
-			return nil // S3 behavior: deleting non-existent object succeeds
+			return nil
 		}
 		if err != nil {
+			// Directory not empty is expected (S3 directory markers are virtual,
+			// the actual dir may have contents). Treat as success.
+			if os.IsExist(err) || strings.Contains(err.Error(), "not empty") {
+				return nil
+			}
 			return err
 		}
-		
-		// Clean up empty parent directories
-		fs.cleanupEmptyDirectories(bucket, filepath.Dir(key))
 		return nil
 	}
 
@@ -467,7 +505,9 @@ func (fs *FileSystemBackend) DeleteObject(ctx context.Context, bucket, key strin
 	return nil
 }
 
-// cleanupEmptyDirectories recursively removes empty directories starting from the given path
+// cleanupEmptyDirectories removes the immediate empty directory only (non-recursive).
+// Recursive cleanup was causing data loss (Iceberg metadata, etc.) when grandparent
+// directories held unrelated content.
 func (fs *FileSystemBackend) cleanupEmptyDirectories(bucket, dirPath string) {
 	// Don't clean up the bucket root directory
 	if dirPath == "" || dirPath == "." || dirPath == "/" {
@@ -503,14 +543,10 @@ func (fs *FileSystemBackend) cleanupEmptyDirectories(bucket, dirPath string) {
 			}
 		}
 		
-		// Remove the empty directory
-		if err := os.Remove(fullDirPath); err == nil {
-			// Successfully removed directory, try to clean up parent
-			parentDir := filepath.Dir(dirPath)
-			if parentDir != dirPath { // Avoid infinite recursion
-				fs.cleanupEmptyDirectories(bucket, parentDir)
-			}
-		}
+		// Remove only this empty directory — do NOT recurse to parents.
+		// Recursive cleanup was causing data loss when grandparent dirs held
+		// unrelated content (e.g. Iceberg metadata).
+		_ = os.Remove(fullDirPath)
 	}
 }
 
@@ -563,7 +599,7 @@ func (fs *FileSystemBackend) HeadObject(ctx context.Context, bucket, key string)
 	return &ObjectInfo{
 		Key:          key,
 		Size:         size,
-		ETag:         fmt.Sprintf("\"%x\"", info.ModTime().UnixNano()),
+		ETag:         fmt.Sprintf("\"%s\"", generateFileSystemETag(info)),
 		LastModified: info.ModTime(),
 		ContentType:  contentType,
 		Metadata:     metadata,
@@ -595,7 +631,10 @@ func (fs *FileSystemBackend) PutObjectACL(ctx context.Context, bucket, key strin
 }
 
 func (fs *FileSystemBackend) InitiateMultipartUpload(ctx context.Context, bucket, key string, metadata map[string]string) (string, error) {
-	uploadID := fmt.Sprintf("%s-%d", key, time.Now().UnixNano())
+	// Hash the key so keys with spaces or special characters produce a
+	// safe upload ID that passes validateUploadID.
+	keyHash := md5.Sum([]byte(key)) //nolint:gosec // MD5 used for upload ID generation only, not security
+	uploadID := fmt.Sprintf("%s-%d", hex.EncodeToString(keyHash[:]), time.Now().UnixNano())
 
 	// Create a temporary directory for multipart upload
 	uploadDir, err := fs.secureUploadPath(bucket, uploadID)
@@ -626,12 +665,22 @@ func (fs *FileSystemBackend) UploadPart(ctx context.Context, bucket, key, upload
 	defer fs.bufferPool.Put(bufPtr)
 	buf := *bufPtr
 
-	_, err = io.CopyBuffer(file, reader, buf)
+	// Compute MD5 while writing so the returned ETag matches the S3 spec
+	// (md5 hex of the part contents, quoted).
+	hasher := md5.New() //nolint:gosec // MD5 is required for S3 ETag compatibility
+	multiWriter := io.MultiWriter(file, hasher)
+
+	_, err = io.CopyBuffer(multiWriter, reader, buf)
 	if err != nil {
 		return "", fmt.Errorf("failed to write part data: %w", err)
 	}
 
-	return fmt.Sprintf("\"%d\"", partNumber), nil
+	if err := file.Sync(); err != nil {
+		return "", fmt.Errorf("failed to sync part data: %w", err)
+	}
+
+	etag := hex.EncodeToString(hasher.Sum(nil))
+	return fmt.Sprintf("\"%s\"", etag), nil
 }
 
 func (fs *FileSystemBackend) CompleteMultipartUpload(ctx context.Context, bucket, key, uploadID string, parts []CompletedPart) error {
@@ -721,6 +770,10 @@ func (fs *FileSystemBackend) CompleteMultipartUpload(ctx context.Context, bucket
 		if err != nil {
 			return fmt.Errorf("failed to copy part %d: %w", reader.partNumber, err)
 		}
+	}
+
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("failed to sync multipart object: %w", err)
 	}
 
 	// Clean up upload directory

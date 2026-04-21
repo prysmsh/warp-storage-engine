@@ -84,7 +84,14 @@ func (h *Handler) handleBulkDelete(w http.ResponseWriter, r *http.Request, bucke
 		return
 	}
 
-	logger.WithField("objectCount", len(req.Objects)).Info("Processing bulk delete request")
+	keys := make([]string, len(req.Objects))
+	for i, obj := range req.Objects {
+		keys[i] = obj.Key
+	}
+	logger.WithFields(logrus.Fields{
+		"objectCount": len(req.Objects),
+		"keys":        keys,
+	}).Info("Processing bulk delete request")
 
 	// Process deletions
 	var response DeleteObjectsResponse
@@ -108,7 +115,7 @@ func (h *Handler) handleBulkDelete(w http.ResponseWriter, r *http.Request, bucke
 					Key: obj.Key,
 				})
 			}
-			logger.WithField("key", obj.Key).Debug("Deleted object")
+			logger.WithField("key", obj.Key).Info("Bulk-deleted object")
 		}
 	}
 

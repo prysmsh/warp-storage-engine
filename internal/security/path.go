@@ -112,16 +112,32 @@ func ValidateObjectKey(key string) error {
 		return ErrInvalidPath
 	}
 
-	// Check for dangerous system paths
+	// Block absolute filesystem paths (which would also be caught by
+	// ValidatePathSecure's IsAbs check, but be explicit). We intentionally
+	// do NOT match these as substrings — arbitrary S3 keys like
+	// `infrastructure/vault/overlays/dev/serviceaccount.yaml` contain `/dev/`
+	// as a normal path segment and have nothing to do with the host's
+	// `/dev` filesystem. Matching substrings here would reject legitimate
+	// Flux/Kustomize layouts that use `dev`, `etc`, `var`, `proc`, `sys`
+	// as directory names.
 	lowerKey := strings.ToLower(key)
-	dangerousPaths := []string{
+	dangerousPrefixes := []string{
 		"/etc/", "/proc/", "/sys/", "/dev/", "/var/",
+	}
+	for _, p := range dangerousPrefixes {
+		if strings.HasPrefix(lowerKey, p) {
+			return ErrInvalidPath
+		}
+	}
+
+	// Windows-style absolute paths and traversal tokens anywhere in the
+	// key are always suspect — reject regardless of position.
+	windowsDangerous := []string{
 		"\\windows\\", "\\system32\\", "\\program files\\",
 		"../", ".\\", "..\\",
 	}
-
-	for _, dangerous := range dangerousPaths {
-		if strings.Contains(lowerKey, dangerous) {
+	for _, d := range windowsDangerous {
+		if strings.Contains(lowerKey, d) {
 			return ErrInvalidPath
 		}
 	}

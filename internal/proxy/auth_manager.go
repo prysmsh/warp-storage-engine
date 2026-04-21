@@ -337,21 +337,29 @@ func (am *AuthenticationManager) validateSecureSession(session interface{}) bool
 		return false
 	}
 
-	// Check session expiration (critical security check)
-	if expiresAt, ok := values["expires_at"].(time.Time); ok {
-		if time.Now().After(expiresAt) {
-			return false
-		}
-	} else {
-		// No expiration set - reject for security
+	// Check session expiration (critical security check).
+	// Gorilla sessions may round-trip expires_at as either time.Time (in-memory)
+	// or int64 unix seconds (after cookie/gob decode) — accept both.
+	var expiresAt time.Time
+	switch v := values["expires_at"].(type) {
+	case time.Time:
+		expiresAt = v
+	case int64:
+		expiresAt = time.Unix(v, 0)
+	default:
+		// No expiration set or invalid type - reject for security
+		return false
+	}
+
+	if time.Now().After(expiresAt) {
 		return false
 	}
 
 	// Validate session integrity using constant-time comparison
 	if expectedHash, ok := values["integrity_hash"].(string); ok {
 		if userSub, ok := values["user_sub"].(string); ok {
-			// Recompute integrity hash
-			computedHash := am.computeSessionIntegrityHash(userSub, values["expires_at"].(time.Time))
+			// Recompute integrity hash using the normalized expiration time
+			computedHash := am.computeSessionIntegrityHash(userSub, expiresAt)
 			// Use constant-time comparison to prevent timing attacks
 			if subtle.ConstantTimeCompare([]byte(expectedHash), []byte(computedHash)) != 1 {
 				return false

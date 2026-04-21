@@ -90,7 +90,7 @@ func resolveVaultToken(cfg *config.VaultAuthConfig) (string, error) {
 		}
 		token := strings.TrimSpace(string(data))
 		if token == "" {
-			return "", fmt.Errorf("vault token file is empty")
+			return "", nil
 		}
 		return token, nil
 	}

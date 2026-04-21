@@ -24,7 +24,7 @@ const (
 	maxListKeys         = 1000
 	maxPartNumber       = 10000
 	minPartSize         = 5 * 1024 * 1024               // 5MB
-	maxObjectSize       = 5 * 1024 * 1024 * 1024 * 1024 // 5TB
+	maxObjectSize       int64 = 5 * 1024 * 1024 * 1024 * 1024 // 5TB (typed: overflows 32-bit int)
 	maxQueryParamLen    = 512
 	maxContinuationLen  = 1024
 )

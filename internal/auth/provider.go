@@ -280,12 +280,14 @@ func (p *AWSV4Provider) Authenticate(r *http.Request) error {
 		return fmt.Errorf("invalid authorization header format")
 	}
 
-	// Parse authorization header
-	parts := strings.Split(authHeader[17:], ", ")
+	// Parse authorization header. AWS SigV4 spec allows the components to be
+	// separated by either ", " (Boto3/AWS SDKs) or "," (mc, minio-go). Split
+	// on "," and trim each part so both forms work.
+	parts := strings.Split(authHeader[17:], ",")
 	authComponents := make(map[string]string)
 
 	for _, part := range parts {
-		kv := strings.SplitN(part, "=", 2)
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
 		if len(kv) == 2 {
 			authComponents[kv[0]] = kv[1]
 		}
@@ -324,18 +326,18 @@ func (p *AWSV4Provider) Authenticate(r *http.Request) error {
 	}
 
 	// Create canonical request
-	// Use RawPath (percent-encoded) when available, since the AWS SDK computes
-	// the signature using the encoded URI. Falling back to Path handles cases
-	// where RawPath is empty (no encoding needed).
-	canonicalURI := r.URL.RawPath
-	if canonicalURI == "" {
-		canonicalURI = r.URL.Path
-	}
+	// Use EscapedPath() so percent-encoded characters (e.g. colons in Loki chunk paths)
+	// match the form the client signed over, rather than the decoded r.URL.Path.
+	canonicalURI := r.URL.EscapedPath()
 	if canonicalURI == "" {
 		canonicalURI = "/"
 	}
 
-	canonicalQueryString := r.URL.Query().Encode()
+	// AWS SigV4 requires query parameters sorted by name, then by value.
+	// Clients (e.g. Boto3) sort params when signing, so we must sort identically.
+	// url.Values.Encode() sorts alphabetically (matching AWS spec) but encodes
+	// spaces as '+'. AWS SigV4 requires '%20', so we replace after encoding.
+	canonicalQueryString := strings.ReplaceAll(r.URL.Query().Encode(), "+", "%20")
 
 	// Build canonical headers
 	canonicalHeaders := ""
