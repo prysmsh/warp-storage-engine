@@ -242,6 +242,13 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	return s, nil
 }
 
+// Storage returns the configured storage backend. Exposed so auxiliary
+// listeners (e.g. the OCI Distribution frontend in cmd/…/main.go) can share
+// the same backend and any tenant-aware wrapping.
+func (s *Server) Storage() storage.Backend {
+	return s.storage
+}
+
 // ServeHTTP handles incoming requests with security headers and preprocessing
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add security headers to all responses

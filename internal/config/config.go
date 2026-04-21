@@ -28,6 +28,31 @@ type Config struct {
 	Sentry        SentryConfig        `mapstructure:"sentry"`
 	OPA           OPAConfig           `mapstructure:"opa"`
 	Multitenancy  MultitenancyConfig  `mapstructure:"multitenancy"`
+	OCI           OCIConfig           `mapstructure:"oci"`
+}
+
+// OCIConfig contains configuration for the OCI Distribution registry frontend.
+// When enabled, a second HTTP listener speaks OCI Distribution v2 API at
+// oci.listen and stores artifacts in the configured backend under oci.bucket.
+type OCIConfig struct {
+	Enabled  bool            `mapstructure:"enabled" envconfig:"OCI_ENABLED" default:"false"`
+	Listen   string          `mapstructure:"listen" envconfig:"OCI_LISTEN" default:":5000"`
+	Bucket   string          `mapstructure:"bucket" envconfig:"OCI_BUCKET" default:"oci"`
+	Username string          `mapstructure:"username" envconfig:"OCI_USERNAME" default:""`
+	Password string          `mapstructure:"password" envconfig:"OCI_PASSWORD" default:""`
+	Bearer   OCIBearerConfig `mapstructure:"bearer"`
+}
+
+// OCIBearerConfig enables OCI Distribution bearer-token auth. When enabled
+// the registry advertises a Bearer challenge pointing at realm, and clients
+// exchange their Basic credentials for a short-lived HMAC-signed JWT at that
+// endpoint. Basic auth continues to work at the token endpoint itself.
+type OCIBearerConfig struct {
+	Enabled  bool          `mapstructure:"enabled" envconfig:"OCI_BEARER_ENABLED" default:"false"`
+	Realm    string        `mapstructure:"realm" envconfig:"OCI_BEARER_REALM" default:""`
+	Service  string        `mapstructure:"service" envconfig:"OCI_BEARER_SERVICE" default:"warp-oci"`
+	Secret   string        `mapstructure:"secret" envconfig:"OCI_BEARER_SECRET" default:""`
+	TokenTTL time.Duration `mapstructure:"token_ttl" envconfig:"OCI_BEARER_TOKEN_TTL" default:"1h"`
 }
 
 // ServerConfig contains HTTP server configuration settings
