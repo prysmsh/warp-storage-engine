@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/encryption/types"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption/types"
 )
 
 // mockKeyProvider implements types.KeyProvider for testing

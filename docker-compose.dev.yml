@@ -1,5 +1,5 @@
 services:
-  foundation-storage-engine:
+  warp-storage-engine:
     build: .
     ports:
       - "8080:8080"

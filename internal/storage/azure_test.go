@@ -3,7 +3,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 func TestNewAzureBackend(t *testing.T) {

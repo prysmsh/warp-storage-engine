@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 	"github.com/gorilla/sessions"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/square/go-jose.v2"
@@ -866,7 +866,7 @@ func (h *Auth0Handler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile - Foundation Storage Engine</title>
+    <title>Profile - Warp Storage Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         window.AUTH_USER = %s;
@@ -2079,7 +2079,7 @@ func (h *Auth0Handler) GenerateAPIKey(userID string, req APIKeyRequest) (*APIKey
 	apiKey := &APIKey{
 		ID:          keyID,
 		Name:        req.Name,
-		AccessKey:   "fse_" + accessKey, // prefix to identify Foundation Storage Engine keys
+		AccessKey:   "fse_" + accessKey, // prefix to identify Warp Storage Engine keys
 		SecretKey:   secretKey,
 		UserID:      userID,
 		CreatedAt:   time.Now(),

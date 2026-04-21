@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 

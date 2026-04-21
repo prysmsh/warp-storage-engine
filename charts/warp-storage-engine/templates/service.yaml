@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.service.name | default (include "foundation-storage-engine.fullname" .) }}
+  name: {{ .Values.service.name | default (include "warp-storage-engine.fullname" .) }}
   labels:
-    {{- include "foundation-storage-engine.labels" . | nindent 4 }}
+    {{- include "warp-storage-engine.labels" . | nindent 4 }}
     {{- with .Values.service.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -20,4 +20,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "foundation-storage-engine.selectorLabels" . | nindent 4 }}
+    {{- include "warp-storage-engine.selectorLabels" . | nindent 4 }}

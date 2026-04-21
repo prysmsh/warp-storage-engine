@@ -1,4 +1,4 @@
-module github.com/einyx/foundation-storage-engine
+module github.com/prysmsh/warp-storage-engine
 
 go 1.24.0
 

@@ -18,9 +18,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/logging"
-	"github.com/einyx/foundation-storage-engine/internal/proxy"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/logging"
+	"github.com/prysmsh/warp-storage-engine/internal/proxy"
+	"github.com/prysmsh/warp-storage-engine/pkg/oci"
 )
 
 const (
@@ -45,8 +46,8 @@ var (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "foundation-storage-engine",
-		Short: "Foundation Storage Engine",
+		Use:   "warp-storage-engine",
+		Short: "Warp Storage Engine",
 		Long:  `A high-performance S3-compatible storage engine that can proxy requests to various storage backends including Azure Blob Storage`,
 		RunE:  run,
 	}
@@ -108,7 +109,7 @@ func run(cmd *cobra.Command, _ []string) error {
 			slog.SetDefault(logger)
 			
 			// Test slog logging to Sentry
-			slog.Info("Foundation Storage Engine started", 
+			slog.Info("Warp Storage Engine started", 
 				"version", version,
 				"commit", commit,
 				"sentry", "enabled")
@@ -185,6 +186,34 @@ func run(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Optional OCI Distribution listener. Speaks OCI v2 on its own port so
+	// the /v2 path namespace can't collide with S3 bucket keys. Shares the
+	// storage backend with the main server (including any tenant-aware
+	// wrapping) and uses HTTP Basic auth when credentials are configured.
+	var ociSrv *http.Server
+	var ociHandler *oci.Handler
+	if appConfig.OCI.Enabled {
+		var err error
+		ociHandler, err = oci.NewHandler(proxyServer.Storage(), appConfig.OCI)
+		if err != nil {
+			return fmt.Errorf("failed to create OCI handler: %w", err)
+		}
+		ociSrv = &http.Server{
+			Addr:              appConfig.OCI.Listen,
+			Handler:           ociHandler.Router(),
+			ReadTimeout:       appConfig.Server.ReadTimeout,
+			WriteTimeout:      appConfig.Server.WriteTimeout,
+			IdleTimeout:       appConfig.Server.IdleTimeout,
+			MaxHeaderBytes:    maxHeaderBytes,
+			ReadHeaderTimeout: readHeaderTimeout,
+		}
+		go func() {
+			logrus.WithField("addr", appConfig.OCI.Listen).Info("OCI Distribution v2 listener starting")
+			if err := ociSrv.ListenAndServe(); err != http.ErrServerClosed {
+				logrus.WithError(err).Error("OCI listener error")
+			}
+		}()
+	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
@@ -209,6 +238,16 @@ func run(cmd *cobra.Command, _ []string) error {
 			srv.Close()
 		} else {
 			logrus.Info("HTTP server stopped gracefully")
+		}
+
+		if ociSrv != nil {
+			if err := ociSrv.Shutdown(shutdownCtx); err != nil {
+				logrus.WithError(err).Error("Failed to shutdown OCI listener gracefully")
+				ociSrv.Close()
+			}
+		}
+		if ociHandler != nil {
+			_ = ociHandler.Close()
 		}
 		
 		// Phase 2: Close application resources
@@ -255,7 +294,7 @@ func initSentry(appConfig *config.Config) error {
 
 	// Set release version if not provided in config
 	if options.Release == "" {
-		options.Release = fmt.Sprintf("foundation-storage-engine@%s", version)
+		options.Release = fmt.Sprintf("warp-storage-engine@%s", version)
 	}
 
 	// Note: BeforeSendTimeout and FlushTimeout are not directly configurable in the current SDK version

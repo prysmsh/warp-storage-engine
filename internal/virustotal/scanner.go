@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 const (

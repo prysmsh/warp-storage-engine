@@ -1,6 +1,6 @@
 services:
-  foundation-storage-engine:
-    #image: ghcr.io/einyx/foundation-storage-engine:latest
+  warp-storage-engine:
+    #image: ghcr.io/prysmsh/warp-storage-engine:latest
     # Or build locally: 
     build: .
     ports:
@@ -29,11 +29,11 @@ services:
       - VIRUSTOTAL_ENABLED=${VIRUSTOTAL_ENABLED:-true}
       - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
     volumes:
-      - ./config.local.yaml:/etc/foundation-storage-engine/foundation-storage-engine.yaml:ro
+      - ./config.local.yaml:/etc/warp-storage-engine/warp-storage-engine.yaml:ro
       - ~/.aws:/root/.aws:rw  # Mount AWS credentials with write access for SSO token refresh
     command:
       - "--config"
-      - "/etc/foundation-storage-engine/foundation-storage-engine.yaml"
+      - "/etc/warp-storage-engine/warp-storage-engine.yaml"
       - "--log-level"
       - "debug"
     healthcheck:

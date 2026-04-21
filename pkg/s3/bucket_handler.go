@@ -44,8 +44,8 @@ func (h *Handler) listBuckets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := listAllMyBucketsResult{}
-	result.Owner.ID = "foundation-storage-engine"
-	result.Owner.DisplayName = "foundation-storage-engine"
+	result.Owner.ID = "warp-storage-engine"
+	result.Owner.DisplayName = "warp-storage-engine"
 
 	for _, b := range buckets {
 		result.Buckets.Bucket = append(result.Buckets.Bucket, bucket{
@@ -92,6 +92,14 @@ func (h *Handler) handleBucket(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
+		// `?location=` is a distinct S3 operation (GetBucketLocation) that must
+		// return a LocationConstraint XML, not a ListBucketResult. Without this
+		// branch the client parses the listing's leading whitespace as the
+		// region and produces an Authorization header Go refuses to send.
+		if _, hasLocation := r.URL.Query()["location"]; hasLocation {
+			h.getBucketLocation(w, r, bucket)
+			return
+		}
 		h.listObjects(w, r, bucket)
 	case "POST":
 		// Check if this is a bulk delete request
@@ -196,4 +204,30 @@ func (h *Handler) headBucket(w http.ResponseWriter, r *http.Request, bucket stri
 
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(http.StatusOK)
+}
+
+// getBucketLocation answers GET /<bucket>/?location= with the canonical
+// empty-LocationConstraint XML (us-east-1 default). Real AWS returns
+// `<LocationConstraint xmlns="..."/>` for us-east-1, and SDKs like minio-go
+// and aws-sdk-go-v2 cache this region. Returning a ListBucketResult here
+// (the previous fall-through behaviour) left clients with "\n  " as the
+// region, which they then embedded in SigV4 Credential strings that Go's
+// net/http refused to transmit ("invalid header field value for Authorization").
+func (h *Handler) getBucketLocation(w http.ResponseWriter, r *http.Request, bucket string) {
+	ctx := r.Context()
+
+	exists, err := h.storage.BucketExists(ctx, bucket)
+	if err != nil {
+		h.sendError(w, err, http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		h.sendError(w, fmt.Errorf("bucket not found"), http.StatusNotFound)
+		return
+	}
+
+	const body = `<?xml version="1.0" encoding="UTF-8"?><LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>`
+	w.Header().Set("Content-Type", "application/xml")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(body))
 }

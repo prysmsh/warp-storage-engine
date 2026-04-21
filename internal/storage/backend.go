@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 // Backend interface for S3-compatible storage operations

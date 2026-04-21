@@ -13,11 +13,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/middleware"
-	"github.com/einyx/foundation-storage-engine/internal/storage"
-	"github.com/einyx/foundation-storage-engine/internal/virustotal"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/middleware"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/virustotal"
 )
 
 const (

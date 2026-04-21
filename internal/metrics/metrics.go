@@ -20,7 +20,7 @@ var (
 	defaultMetricsOnce sync.Once
 )
 
-// Metrics holds all the metrics for the foundation-storage-engine
+// Metrics holds all the metrics for the warp-storage-engine
 type Metrics struct {
 	// Request metrics
 	RequestsTotal    *prometheus.CounterVec

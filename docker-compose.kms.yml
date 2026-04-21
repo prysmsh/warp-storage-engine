@@ -1,9 +1,9 @@
 services:
-  foundation-storage-engine:
+  warp-storage-engine:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: foundation-storage-engine-kms
+    container_name: warp-storage-engine-kms
     ports:
       - "8082:8080"
     environment:
@@ -24,7 +24,7 @@ services:
       - ENCRYPTION_ENABLED=true
       - ENCRYPTION_KEY_PROVIDER=aws-kms
       - KMS_ENABLED=true
-      - KMS_DEFAULT_KEY_ID=${KMS_KEY_ID:-alias/foundation-storage-engine-dev}
+      - KMS_DEFAULT_KEY_ID=${KMS_KEY_ID:-alias/warp-storage-engine-dev}
       - KMS_REGION=${AWS_REGION:-us-east-1}
       - KMS_VALIDATE_KEYS=true
 
@@ -38,16 +38,16 @@ services:
       # Mount AWS credentials to use dev profile
       - ~/.aws:/root/.aws:ro
       # Mount config file if you prefer file-based config
-      - ./examples/config-kms-docker.yaml:/etc/foundation-storage-engine/config.yaml:ro
+      - ./examples/config-kms-docker.yaml:/etc/warp-storage-engine/config.yaml:ro
     depends_on:
       - minio
     networks:
-      - foundation-storage-engine-net
+      - warp-storage-engine-net
     command: ["--listen", "0.0.0.0:8080", "--log-level", "debug"]
 
   minio:
     image: minio/minio:latest
-    container_name: foundation-storage-engine-minio
+    container_name: warp-storage-engine-minio
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -63,12 +63,12 @@ services:
       timeout: 20s
       retries: 3
     networks:
-      - foundation-storage-engine-net
+      - warp-storage-engine-net
 
   # Optional: LocalStack for testing KMS without real AWS
   localstack:
     image: localstack/localstack:latest
-    container_name: foundation-storage-engine-localstack
+    container_name: warp-storage-engine-localstack
     ports:
       - "4566:4566"
     environment:
@@ -82,14 +82,14 @@ services:
       - localstack_data:/tmp/localstack
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - foundation-storage-engine-net
+      - warp-storage-engine-net
     profiles:
       - localstack
 
   # Create KMS keys in LocalStack
   localstack-setup:
     image: amazon/aws-cli:latest
-    container_name: foundation-storage-engine-localstack-setup
+    container_name: warp-storage-engine-localstack-setup
     depends_on:
       - localstack
     environment:
@@ -109,12 +109,12 @@ services:
 
       echo 'Creating key alias...'
       aws --endpoint-url=http://localstack:4566 kms create-alias \
-        --alias-name alias/foundation-storage-engine-dev \
+        --alias-name alias/warp-storage-engine-dev \
         --target-key-id $$(aws --endpoint-url=http://localstack:4566 kms list-keys --query 'Keys[0].KeyId' --output text)
 
       echo 'KMS setup complete!'
     networks:
-      - foundation-storage-engine-net
+      - warp-storage-engine-net
     profiles:
       - localstack
 
@@ -125,5 +125,5 @@ volumes:
     driver: local
 
 networks:
-  foundation-storage-engine-net:
+  warp-storage-engine-net:
     driver: bridge

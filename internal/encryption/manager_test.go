@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/encryption/types"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption/types"
 )
 
 func TestNewManager(t *testing.T) {

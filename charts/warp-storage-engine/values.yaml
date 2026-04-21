@@ -1,11 +1,11 @@
-# Default values for foundation-storage-engine.
+# Default values for warp-storage-engine.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
 image:
-  repository: einyx/foundation-storage-engine
+  repository: prysmsh/warp-storage-engine
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -17,7 +17,7 @@ fullnameOverride: ""
 # Service configuration
 service:
   # Service name - defaults to "minio" for compatibility
-  name: foundation-storage-engine
+  name: warp-storage-engine
   type: ClusterIP
   port: 9000
   targetPort: 8080
@@ -154,7 +154,7 @@ externalSecrets:
         key: "azure/storage/sas-token"
         property: ""
     # Target secret name (will be created by ExternalSecrets)
-    targetSecretName: "foundation-storage-engine-azure-credentials"
+    targetSecretName: "warp-storage-engine-azure-credentials"
 
   # AWS/S3 storage credentials from external secret
   aws:
@@ -168,7 +168,7 @@ externalSecrets:
         key: "aws/s3/secret-access-key"
         property: ""
     # Target secret name (will be created by ExternalSecrets)
-    targetSecretName: "foundation-storage-engine-aws-credentials"
+    targetSecretName: "warp-storage-engine-aws-credentials"
 
   # Authentication credentials from external secret
   auth:
@@ -176,13 +176,13 @@ externalSecrets:
     # Remote references for auth credentials
     remoteRefs:
       identity:
-        key: "foundation-storage-engine/auth/identity"
+        key: "warp-storage-engine/auth/identity"
         property: ""
       credential:
-        key: "foundation-storage-engine/auth/credential"
+        key: "warp-storage-engine/auth/credential"
         property: ""
     # Target secret name (will be created by ExternalSecrets)
-    targetSecretName: "foundation-storage-engine-auth-credentials"
+    targetSecretName: "warp-storage-engine-auth-credentials"
 
   # Encryption keys from external secret
   encryption:
@@ -190,10 +190,10 @@ externalSecrets:
     # Remote references for encryption keys
     remoteRefs:
       masterKey:
-        key: "foundation-storage-engine/encryption/master-key"
+        key: "warp-storage-engine/encryption/master-key"
         property: ""
     # Target secret name (will be created by ExternalSecrets)
-    targetSecretName: "foundation-storage-engine-encryption-keys"
+    targetSecretName: "warp-storage-engine-encryption-keys"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -279,14 +279,14 @@ ingress:
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: foundation-storage-engine.local
+    - host: warp-storage-engine.local
       paths:
         - path: /
           pathType: Prefix
   tls: []
-  #  - secretName: foundation-storage-engine-tls
+  #  - secretName: warp-storage-engine-tls
   #    hosts:
-  #      - foundation-storage-engine.local
+  #      - warp-storage-engine.local
 
 # PodDisruptionBudget
 podDisruptionBudget:

@@ -1,17 +1,17 @@
 openapi: 3.0.3
 info:
-  title: Foundation Storage Engine API
+  title: Warp Storage Engine API
   description: |
     S3-compatible storage proxy with additional features for authentication, sharing, and monitoring.
     
     This API is mostly compatible with AWS S3 REST API. For S3 operations, refer to the 
     [AWS S3 API documentation](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html).
     
-    This documentation covers the custom endpoints specific to Foundation Storage Engine.
+    This documentation covers the custom endpoints specific to Warp Storage Engine.
   version: 1.0.0
   contact:
-    name: Foundation Storage Engine
-    url: https://github.com/einyx/foundation-storage-engine
+    name: Warp Storage Engine
+    url: https://github.com/prysmsh/warp-storage-engine
 
 servers:
   - url: http://localhost:8080

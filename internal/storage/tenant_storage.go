@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/einyx/foundation-storage-engine/internal/database"
-	"github.com/einyx/foundation-storage-engine/internal/middleware"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/middleware"
 	"github.com/sirupsen/logrus"
 )
 

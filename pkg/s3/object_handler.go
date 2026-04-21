@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
 )
 
 // handleObject handles object-level operations (GET, PUT, DELETE, HEAD, POST)
@@ -457,24 +457,18 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		}).Info("Chunked transfer detection")
 
 		if isChunkedTransfer {
-			if isAWSCLI {
-				logger.WithField("userAgent", userAgent).Info("AWS CLI small file - using direct body reader")
-				body = r.Body
-			} else {
-				body = storage.NewSmartChunkDecoder(r.Body)
-				logger.Info("Using smart chunk decoder for small file")
-			}
+			body = storage.NewSmartChunkDecoder(r.Body)
+			logger.Info("Using smart chunk decoder for small file")
 		}
 
 		// Read entire small file into memory
 		// For chunked transfers, use io.Copy instead of io.ReadFull to handle size variations
 		logger.WithFields(logrus.Fields{
 			"isChunkedTransfer": isChunkedTransfer,
-			"isAWSCLI":          isAWSCLI,
-			"useChunkedPath":    isChunkedTransfer && !isAWSCLI,
+			"useChunkedPath":    isChunkedTransfer,
 		}).Info("Deciding read strategy")
 
-		if isChunkedTransfer && !isAWSCLI {
+		if isChunkedTransfer {
 			logger.Info("Using chunked transfer read strategy")
 
 			// For chunked transfers, read up to actualSize but don't require exact match
@@ -533,15 +527,11 @@ func (h *Handler) putObject(w http.ResponseWriter, r *http.Request, bucket, key 
 		if r.Header.Get("x-amz-content-sha256") == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" ||
 			r.Header.Get("Content-Encoding") == "aws-chunked" {
 
-			// For AWS CLI clients, bypass SmartChunkDecoder to avoid hanging issues
-			if isAWSCLI {
-				logger.WithField("userAgent", userAgent).Info("AWS CLI large file - using direct body reader")
-				body = r.Body
-			} else {
-				// Use SmartChunkDecoder for other clients that might have chunked encoding issues
-				body = storage.NewSmartChunkDecoder(r.Body)
-				logger.Info("Using smart chunk decoder for large file upload")
-			}
+			// Always route chunked uploads through SmartChunkDecoder — its raw-fallback
+			// handles AWS CLI correctly, and bypassing it caused chunk markers to be
+			// written to disk verbatim for larger files.
+			body = storage.NewSmartChunkDecoder(r.Body)
+			logger.Info("Using smart chunk decoder for large file upload")
 
 			// If x-amz-decoded-content-length is provided, use it as the actual size
 			if decodedLen := r.Header.Get("x-amz-decoded-content-length"); decodedLen != "" {

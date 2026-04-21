@@ -13,9 +13,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/database"
-	"github.com/einyx/foundation-storage-engine/internal/middleware"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/middleware"
 )
 
 // TenantHandlers provides HTTP handlers for org/user/bucket management

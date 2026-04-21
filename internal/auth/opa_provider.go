@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/opa"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/opa"
 	"github.com/sirupsen/logrus"
 )
 

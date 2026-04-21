@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/pkg/s3"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/pkg/s3"
 )
 
 func TestXXEProtection(t *testing.T) {

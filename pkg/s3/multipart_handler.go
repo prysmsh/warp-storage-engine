@@ -14,7 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
 )
 
 // initiateMultipartUpload handles the initiation of a multipart upload

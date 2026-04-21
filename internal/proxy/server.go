@@ -16,15 +16,15 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/cache"
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/database"
-	"github.com/einyx/foundation-storage-engine/internal/metrics"
-	"github.com/einyx/foundation-storage-engine/internal/middleware"
-	"github.com/einyx/foundation-storage-engine/internal/storage"
-	"github.com/einyx/foundation-storage-engine/internal/virustotal"
-	"github.com/einyx/foundation-storage-engine/pkg/s3"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/cache"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/metrics"
+	"github.com/prysmsh/warp-storage-engine/internal/middleware"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/virustotal"
+	"github.com/prysmsh/warp-storage-engine/pkg/s3"
 )
 
 const (
@@ -240,6 +240,13 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// Storage returns the configured storage backend. Exposed so auxiliary
+// listeners (e.g. the OCI Distribution frontend in cmd/…/main.go) can share
+// the same backend and any tenant-aware wrapping.
+func (s *Server) Storage() storage.Backend {
+	return s.storage
 }
 
 // ServeHTTP handles incoming requests with security headers and preprocessing

@@ -24,7 +24,7 @@ func ServeSwaggerUI(openAPISpec []byte, basePath string) http.HandlerFunc {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Foundation Storage Engine - API Documentation</title>
+    <title>Warp Storage Engine - API Documentation</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.10.3/swagger-ui.css">
     <style>
         body {

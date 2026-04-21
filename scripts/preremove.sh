@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SERVICE_NAME="foundation-storage-engine"
+SERVICE_NAME="warp-storage-engine"
 
 if command -v systemctl >/dev/null 2>&1; then
   if systemctl is-active "${SERVICE_NAME}" >/dev/null 2>&1; then

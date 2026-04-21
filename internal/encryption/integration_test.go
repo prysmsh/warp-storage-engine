@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/einyx/foundation-storage-engine/internal/encryption"
-	"github.com/einyx/foundation-storage-engine/internal/encryption/keys"
-	"github.com/einyx/foundation-storage-engine/internal/encryption/stream"
-	"github.com/einyx/foundation-storage-engine/internal/encryption/types"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption/keys"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption/stream"
+	"github.com/prysmsh/warp-storage-engine/internal/encryption/types"
 )
 
 func TestEncryptionIntegration(t *testing.T) {

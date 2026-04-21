@@ -1,4 +1,4 @@
-# Example configuration for foundation-storage-engine with Sentry enabled
+# Example configuration for warp-storage-engine with Sentry enabled
 
 server:
   listen: ":8080"
@@ -48,7 +48,7 @@ sentry:
   # server_name: "storage-engine-1"
   
   # Optional: Set release version (defaults to version from build)
-  # release: "foundation-storage-engine@1.2.3"
+  # release: "warp-storage-engine@1.2.3"
 
 # Monitoring
 monitoring:

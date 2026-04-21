@@ -1,22 +1,22 @@
-# Foundation Storage Engine
+# Warp Storage Engine
 
 [![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/einyx/foundation-storage-engine)](https://goreportcard.com/report/github.com/einyx/foundation-storage-engine)
-[![Container Image](https://img.shields.io/badge/ghcr.io-einyx%2Ffoundation--storage--engine-blue?logo=docker&logoColor=white)](https://github.com/einyx/foundation-storage-engine/pkgs/container/foundation-storage-engine)
-[![CI Status](https://github.com/einyx/foundation-storage-engine/workflows/Release/badge.svg)](https://github.com/einyx/foundation-storage-engine/actions)
-[![codecov](https://codecov.io/gh/einyx/foundation-storage-engine/branch/main/graph/badge.svg?token=ABCDEFG)](https://codecov.io/gh/einyx/foundation-storage-engine)
-[![Release](https://img.shields.io/github/v/release/einyx/foundation-storage-engine)](https://github.com/einyx/foundation-storage-engine/releases/latest)
-[![GoDoc](https://pkg.go.dev/badge/github.com/einyx/foundation-storage-engine?status.svg)](https://pkg.go.dev/github.com/einyx/foundation-storage-engine)
-[![Vibes](https://img.shields.io/badge/vibes-immaculate%20✨-ff69b4?style=flat)](https://github.com/einyx/foundation-storage-engine)
+[![Go Report Card](https://goreportcard.com/badge/github.com/prysmsh/warp-storage-engine)](https://goreportcard.com/report/github.com/prysmsh/warp-storage-engine)
+[![Container Image](https://img.shields.io/badge/ghcr.io-einyx%2Ffoundation--storage--engine-blue?logo=docker&logoColor=white)](https://github.com/prysmsh/warp-storage-engine/pkgs/container/warp-storage-engine)
+[![CI Status](https://github.com/prysmsh/warp-storage-engine/workflows/Release/badge.svg)](https://github.com/prysmsh/warp-storage-engine/actions)
+[![codecov](https://codecov.io/gh/prysmsh/warp-storage-engine/branch/main/graph/badge.svg?token=ABCDEFG)](https://codecov.io/gh/prysmsh/warp-storage-engine)
+[![Release](https://img.shields.io/github/v/release/prysmsh/warp-storage-engine)](https://github.com/prysmsh/warp-storage-engine/releases/latest)
+[![GoDoc](https://pkg.go.dev/badge/github.com/prysmsh/warp-storage-engine?status.svg)](https://pkg.go.dev/github.com/prysmsh/warp-storage-engine)
+[![Vibes](https://img.shields.io/badge/vibes-immaculate%20✨-ff69b4?style=flat)](https://github.com/prysmsh/warp-storage-engine)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
-[![Update Debian Mirror](https://github.com/einyx/foundation-storage-engine/actions/workflows/debian-mirror.yml/badge.svg)](https://github.com/einyx/foundation-storage-engine/actions/workflows/debian-mirror.yml)
-[![Update Red Hat Mirror](https://github.com/einyx/foundation-storage-engine/actions/workflows/redhat-mirror.yml/badge.svg)](https://github.com/einyx/foundation-storage-engine/actions/workflows/redhat-mirror.yml)
+[![Update Debian Mirror](https://github.com/prysmsh/warp-storage-engine/actions/workflows/debian-mirror.yml/badge.svg)](https://github.com/prysmsh/warp-storage-engine/actions/workflows/debian-mirror.yml)
+[![Update Red Hat Mirror](https://github.com/prysmsh/warp-storage-engine/actions/workflows/redhat-mirror.yml/badge.svg)](https://github.com/prysmsh/warp-storage-engine/actions/workflows/redhat-mirror.yml)
 <p align="center">
   <img src="logo.png" width="20%"/>
 </p>
 
-Foundation Storage Engine provides a unified S3 API interface for multiple storage backends
+Warp Storage Engine provides a unified S3 API interface for multiple storage backends
 including AWS S3, Azure Blob Storage, and local filesystem storage.
 
 <p align="center">
@@ -92,7 +92,7 @@ Benchmarked on Intel Core i7-9750H, 16GB RAM, NVMe SSD
 
 ```bash
 # Pull the image
-docker pull foundation-storage-engine/foundation-storage-engine:latest
+docker pull warp-storage-engine/warp-storage-engine:latest
 
 # Run with S3 backend
 docker run -p 8080:8080 \
@@ -103,7 +103,7 @@ docker run -p 8080:8080 \
   -e AUTH_TYPE=awsv4 \
   -e AUTH_IDENTITY=proxy-access-key \
   -e AUTH_CREDENTIAL=proxy-secret-key \
-  foundation-storage-engine/foundation-storage-engine:latest
+  warp-storage-engine/warp-storage-engine:latest
 
 # Run with Azure backend
 docker run -p 8080:8080 \
@@ -114,7 +114,7 @@ docker run -p 8080:8080 \
   -e AUTH_TYPE=basic \
   -e AUTH_IDENTITY=admin \
   -e AUTH_CREDENTIAL=password \
-  foundation-storage-engine/foundation-storage-engine:latest
+  warp-storage-engine/warp-storage-engine:latest
 ```
 
 ### Using Docker Compose
@@ -122,8 +122,8 @@ docker run -p 8080:8080 \
 ```yaml
 version: '3.8'
 services:
-  foundation-storage-engine:
-    image: foundation-storage-engine/foundation-storage-engine:latest
+  warp-storage-engine:
+    image: warp-storage-engine/warp-storage-engine:latest
     ports:
       - "8080:8080"
     environment:
@@ -152,26 +152,26 @@ services:
 
 ```bash
 # Add the Helm repository
-helm repo add foundation-storage-engine https://charts.foundation-storage-engine.io
+helm repo add warp-storage-engine https://charts.warp-storage-engine.io
 helm repo update
 
 # Install with custom values
-helm install my-foundation-storage-engine foundation-storage-engine/foundation-storage-engine \
+helm install my-warp-storage-engine warp-storage-engine/warp-storage-engine \
   --set storage.provider=azure \
   --set storage.azure.accountName=myaccount \
   --set storage.azure.accountKey=mykey \
   --set auth.type=awsv4
 
 # Or use a values file
-helm install my-foundation-storage-engine foundation-storage-engine/foundation-storage-engine -f values.yaml
+helm install my-warp-storage-engine warp-storage-engine/warp-storage-engine -f values.yaml
 ```
 
 ### Building from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/einyx/foundation-storage-engine.git
-cd foundation-storage-engine
+git clone https://github.com/prysmsh/warp-storage-engine.git
+cd warp-storage-engine
 
 # Build the binary
 make build
@@ -180,7 +180,7 @@ make build
 make test
 
 # Run with configuration
-./bin/foundation-storage-engine --config config.yaml
+./bin/warp-storage-engine --config config.yaml
 ```
 
 ## ⚙️ Configuration
@@ -308,8 +308,8 @@ logging:
 ### Using AWS Profile (with SSO support)
 
 ```bash
-# Run foundation-storage-engine with AWS profile
-STORAGE_PROVIDER=s3 AWS_PROFILE=dev ./bin/foundation-storage-engine
+# Run warp-storage-engine with AWS profile
+STORAGE_PROVIDER=s3 AWS_PROFILE=dev ./bin/warp-storage-engine
 
 # Or using config file
 cat > config.yaml <<EOF
@@ -322,7 +322,7 @@ auth:
   type: none  # or awsv4 for authenticated access
 EOF
 
-./bin/foundation-storage-engine -c config.yaml
+./bin/warp-storage-engine -c config.yaml
 ```
 
 ### AWS CLI
@@ -449,27 +449,27 @@ Available at `/metrics` endpoint:
 
 ```prometheus
 # Request metrics
-foundation-storage-engine_requests_total{method="GET",status="200",operation="GetObject"}
-foundation-storage-engine_request_duration_seconds{method="GET",operation="GetObject"}
-foundation-storage-engine_request_size_bytes{method="PUT",operation="PutObject"}
-foundation-storage-engine_response_size_bytes{method="GET",operation="GetObject"}
+warp-storage-engine_requests_total{method="GET",status="200",operation="GetObject"}
+warp-storage-engine_request_duration_seconds{method="GET",operation="GetObject"}
+warp-storage-engine_request_size_bytes{method="PUT",operation="PutObject"}
+warp-storage-engine_response_size_bytes{method="GET",operation="GetObject"}
 
 # Error metrics
-foundation-storage-engine_errors_total{type="auth",operation="GetObject"}
-foundation-storage-engine_errors_total{type="storage",operation="PutObject"}
+warp-storage-engine_errors_total{type="auth",operation="GetObject"}
+warp-storage-engine_errors_total{type="storage",operation="PutObject"}
 
 # Performance metrics
-foundation-storage-engine_active_connections
-foundation-storage-engine_cache_hits_total{type="metadata"}
-foundation-storage-engine_cache_misses_total{type="metadata"}
-foundation-storage-engine_cache_evictions_total
-foundation-storage-engine_buffer_pool_size{pool="small"}
-foundation-storage-engine_buffer_pool_size{pool="large"}
+warp-storage-engine_active_connections
+warp-storage-engine_cache_hits_total{type="metadata"}
+warp-storage-engine_cache_misses_total{type="metadata"}
+warp-storage-engine_cache_evictions_total
+warp-storage-engine_buffer_pool_size{pool="small"}
+warp-storage-engine_buffer_pool_size{pool="large"}
 
 # Storage backend metrics
-foundation-storage-engine_storage_operations_total{backend="s3",operation="get"}
-foundation-storage-engine_storage_duration_seconds{backend="azure",operation="put"}
-foundation-storage-engine_storage_errors_total{backend="filesystem",error="not_found"}
+warp-storage-engine_storage_operations_total{backend="s3",operation="get"}
+warp-storage-engine_storage_duration_seconds{backend="azure",operation="put"}
+warp-storage-engine_storage_errors_total{backend="filesystem",error="not_found"}
 ```
 
 ### Health Checks
@@ -485,12 +485,12 @@ Import the included Grafana dashboard for comprehensive monitoring:
 # Import dashboard
 curl -X POST http://grafana:3000/api/dashboards/import \
   -H "Content-Type: application/json" \
-  -d @grafana/foundation-storage-engine-dashboard.json
+  -d @grafana/warp-storage-engine-dashboard.json
 ```
 
 ### Error Tracking with Sentry
 
-Foundation Storage Engine includes built-in Sentry integration for error tracking and performance monitoring:
+Warp Storage Engine includes built-in Sentry integration for error tracking and performance monitoring:
 
 ```yaml
 # config.yaml
@@ -724,8 +724,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md).
 
 ```bash
 # Fork and clone
-git clone https://github.com/YOUR_USERNAME/foundation-storage-engine.git
-cd foundation-storage-engine
+git clone https://github.com/YOUR_USERNAME/warp-storage-engine.git
+cd warp-storage-engine
 
 # Install dependencies
 make deps
@@ -775,25 +775,25 @@ see the [LICENSE](LICENSE) file for details.
 
 ## 📚 Resources
 
-- [Documentation](https://docs.foundation-storage-engine.io)
-- [API Reference](https://docs.foundation-storage-engine.io/api)
-- [Configuration Guide](https://docs.foundation-storage-engine.io/config)
-- [Performance Tuning](https://docs.foundation-storage-engine.io/performance)
-- [Security Guide](https://docs.foundation-storage-engine.io/security)
+- [Documentation](https://docs.warp-storage-engine.io)
+- [API Reference](https://docs.warp-storage-engine.io/api)
+- [Configuration Guide](https://docs.warp-storage-engine.io/config)
+- [Performance Tuning](https://docs.warp-storage-engine.io/performance)
+- [Security Guide](https://docs.warp-storage-engine.io/security)
 
 ## 💬 Support
 
-- 🐛 [GitHub Issues](https://github.com/einyx/foundation-storage-engine/issues)
-- 💬 [Discussions](https://github.com/einyx/foundation-storage-engine/discussions)
-- 📧 [Email Support](mailto:support@foundation-storage-engine.io)
-- 💼 [Professional Support](https://foundation-storage-engine.io/support)
+- 🐛 [GitHub Issues](https://github.com/prysmsh/warp-storage-engine/issues)
+- 💬 [Discussions](https://github.com/prysmsh/warp-storage-engine/discussions)
+- 📧 [Email Support](mailto:support@warp-storage-engine.io)
+- 💼 [Professional Support](https://warp-storage-engine.io/support)
 
 ---
 
 <p align="center">
-  <a href="https://github.com/einyx/foundation-storage-engine/stargazers"><img src="https://img.shields.io/github/stars/einyx/foundation-storage-engine?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/einyx/foundation-storage-engine/network/members"><img src="https://img.shields.io/github/forks/einyx/foundation-storage-engine?style=social" alt="GitHub forks"></a>
-  <a href="https://twitter.com/intent/tweet?text=Check%20out%20Foundation Storage Engine%20-%20A%20high-performance%20S3-compatible%20proxy%20server!&url=https://github.com/einyx/foundation-storage-engine"><img src="https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Fgithub.com%2Feinyx%2Ffoundation-storage-engine" alt="Tweet"></a>
+  <a href="https://github.com/prysmsh/warp-storage-engine/stargazers"><img src="https://img.shields.io/github/stars/prysmsh/warp-storage-engine?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/prysmsh/warp-storage-engine/network/members"><img src="https://img.shields.io/github/forks/prysmsh/warp-storage-engine?style=social" alt="GitHub forks"></a>
+  <a href="https://twitter.com/intent/tweet?text=Check%20out%20Warp Storage Engine%20-%20A%20high-performance%20S3-compatible%20proxy%20server!&url=https://github.com/prysmsh/warp-storage-engine"><img src="https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Fgithub.com%2Feinyx%2Fwarp-storage-engine" alt="Tweet"></a>
 </p>
 
-Made with ❤️ by the Foundation Storage Engine community
+Made with ❤️ by the Warp Storage Engine community

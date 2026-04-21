@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 // MultiBackendSimple provides routing to different storage backends based on bucket name

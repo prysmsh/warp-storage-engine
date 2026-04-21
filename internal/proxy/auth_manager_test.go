@@ -4,8 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 func TestNewAuthenticationManager(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 // MultiBackend provides routing to different storage backends based on bucket configuration

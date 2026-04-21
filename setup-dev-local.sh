@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Setup script for running foundation-storage-engine locally with dev namespace configuration
+# Setup script for running warp-storage-engine locally with dev namespace configuration
 
-echo "Foundation Storage Engine - Local Dev Setup"
+echo "Warp Storage Engine - Local Dev Setup"
 echo "=========================================="
 echo ""
 echo "This script sets up the local environment to match the Kubernetes dev namespace configuration."
@@ -32,7 +32,7 @@ docker compose -f docker-compose.dev.yml build
 
 # Start the service
 echo ""
-echo "Starting foundation-storage-engine..."
+echo "Starting warp-storage-engine..."
 docker compose -f docker-compose.dev.yml up -d
 
 echo ""

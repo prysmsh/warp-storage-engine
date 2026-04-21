@@ -1,4 +1,4 @@
-# Test configuration for Foundation Storage Engine
+# Test configuration for Warp Storage Engine
 # Provides minimal defaults suitable for integration testing.
 storage:
   provider: filesystem

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SERVICE_NAME="foundation-storage-engine"
+SERVICE_NAME="warp-storage-engine"
 SYSTEMD_SERVICE_PATH="/lib/systemd/system/${SERVICE_NAME}.service"
 
 if command -v systemctl >/dev/null 2>&1 && [[ -f "${SYSTEMD_SERVICE_PATH}" ]]; then

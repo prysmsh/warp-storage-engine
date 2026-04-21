@@ -8,16 +8,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
 	"github.com/spf13/cobra"
 )
 
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "user-manager",
-		Short: "User management CLI for foundation-storage-engine",
+		Short: "User management CLI for warp-storage-engine",
 	}
 
 	var dbConfig database.Config

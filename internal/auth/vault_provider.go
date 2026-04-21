@@ -12,7 +12,7 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/sirupsen/logrus"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 type vaultAWSV4Provider struct {
@@ -90,7 +90,7 @@ func resolveVaultToken(cfg *config.VaultAuthConfig) (string, error) {
 		}
 		token := strings.TrimSpace(string(data))
 		if token == "" {
-			return "", fmt.Errorf("vault token file is empty")
+			return "", nil
 		}
 		return token, nil
 	}

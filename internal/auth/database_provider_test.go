@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/einyx/foundation-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
 )
 
 // MockUserStore is a mock implementation of the UserStore interface

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
 )
 
 func TestShareLinkManager_GetShareLink_Expired(t *testing.T) {

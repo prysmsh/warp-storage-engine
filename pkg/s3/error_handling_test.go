@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
-	"github.com/einyx/foundation-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
 	"github.com/gorilla/mux"
 )
 

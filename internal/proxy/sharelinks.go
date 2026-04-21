@@ -14,8 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/einyx/foundation-storage-engine/internal/security"
-	"github.com/einyx/foundation-storage-engine/internal/storage"
+	"github.com/prysmsh/warp-storage-engine/internal/security"
+	"github.com/prysmsh/warp-storage-engine/internal/storage"
 )
 
 type ShareLink struct {

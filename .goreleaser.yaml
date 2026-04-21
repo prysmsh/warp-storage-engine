@@ -1,4 +1,4 @@
-project_name: foundation-storage-engine
+project_name: warp-storage-engine
 
 before:
   hooks:
@@ -6,9 +6,9 @@ before:
     - go generate ./...
 
 builds:
-  - id: foundation-storage-engine
-    main: ./cmd/foundation-storage-engine
-    binary: foundation-storage-engine
+  - id: warp-storage-engine
+    main: ./cmd/warp-storage-engine
+    binary: warp-storage-engine
     env:
       - CGO_ENABLED=0
     goos:
@@ -29,7 +29,7 @@ builds:
       - -X main.builtBy=goreleaser
 
 archives:
-  - id: foundation-storage-engine
+  - id: warp-storage-engine
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -53,15 +53,15 @@ snapshot:
   name_template: "{{ incpatch .Version }}-next"
 
 nfpms:
-  - id: foundation-storage-engine
-    package_name: foundation-storage-engine
-    vendor: Foundation Storage Engine
+  - id: warp-storage-engine
+    package_name: warp-storage-engine
+    vendor: Warp Storage Engine
     homepage: https://github.com/{{ .Env.GITHUB_REPOSITORY }}
-    maintainer: Foundation Storage Engine Team
+    maintainer: Warp Storage Engine Team
     description: High-performance S3-compatible proxy with encryption support
     license: Apache 2.0
     builds:
-      - foundation-storage-engine
+      - warp-storage-engine
     formats:
       - deb
       - rpm
@@ -70,10 +70,10 @@ nfpms:
     bindir: /usr/bin
     contents:
       - src: config-test.yaml
-        dst: /etc/foundation-storage-engine/config.yaml.example
+        dst: /etc/warp-storage-engine/config.yaml.example
         type: config
-      - src: ./systemd/foundation-storage-engine.service
-        dst: /lib/systemd/system/foundation-storage-engine.service
+      - src: ./systemd/warp-storage-engine.service
+        dst: /lib/systemd/system/warp-storage-engine.service
     scripts:
       postinstall: ./scripts/postinstall.sh
       preremove: ./scripts/preremove.sh
@@ -108,10 +108,10 @@ changelog:
 release:
   github:
     owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
-    name: "foundation-storage-engine"
+    name: "warp-storage-engine"
   name_template: "{{.ProjectName}} v{{.Version}}"
   header: |
-    ## Foundation Storage Engine {{.Version}}
+    ## Warp Storage Engine {{.Version}}
 
     High-performance S3-compatible proxy with support for multiple storage backends.
 
@@ -119,23 +119,23 @@ release:
     ## Installation
 
     ### Windows
-    Download and extract the Windows ZIP: `foundation-storage-engine_Windows_x86_64.zip`
+    Download and extract the Windows ZIP: `warp-storage-engine_Windows_x86_64.zip`
     ```powershell
     # Extract and add to PATH
-    Expand-Archive foundation-storage-engine_Windows_x86_64.zip -DestinationPath C:\foundation-storage-engine
-    $env:Path += ";C:\foundation-storage-engine"
+    Expand-Archive warp-storage-engine_Windows_x86_64.zip -DestinationPath C:\warp-storage-engine
+    $env:Path += ";C:\warp-storage-engine"
     ```
 
     ### Linux (Debian/Ubuntu)
     ```bash
-    dpkg -i foundation-storage-engine_{{ .Version }}_amd64.deb
-    systemctl start foundation-storage-engine
+    dpkg -i warp-storage-engine_{{ .Version }}_amd64.deb
+    systemctl start warp-storage-engine
     ```
 
     ### Linux (RHEL/CentOS)
     ```bash
-    rpm -i foundation-storage-engine_{{ .Version }}_amd64.rpm
-    systemctl start foundation-storage-engine
+    rpm -i warp-storage-engine_{{ .Version }}_amd64.rpm
+    systemctl start warp-storage-engine
     ```
 
     ## Docker Images
@@ -148,13 +148,13 @@ release:
     ## Helm Chart
 
     ```bash
-    helm repo add foundation-storage-engine https://{{ .Env.GITHUB_REPOSITORY_OWNER }}.github.io/{{ .ProjectName }}
-    helm install foundation-storage-engine foundation-storage-engine/foundation-storage-engine --version {{ .Version }}
+    helm repo add warp-storage-engine https://{{ .Env.GITHUB_REPOSITORY_OWNER }}.github.io/{{ .ProjectName }}
+    helm install warp-storage-engine warp-storage-engine/warp-storage-engine --version {{ .Version }}
     ```
 
 # Homebrew tap (optional - requires separate tap repository)
 # brews:
-#   - name: foundation-storage-engine
+#   - name: warp-storage-engine
 #     homepage: https://github.com/{{ .Env.GITHUB_REPOSITORY }}
 #     description: "High-performance S3-compatible proxy"
 #     license: "Apache-2.0"

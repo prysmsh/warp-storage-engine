@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 func TestNewBackend(t *testing.T) {

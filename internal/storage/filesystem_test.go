@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 func TestFileSystemBackend_GetObject_InvalidBucket(t *testing.T) {
@@ -91,7 +91,7 @@ func TestNewFileSystemBackend(t *testing.T) {
 
 // setupFileSystemBackend creates a temporary filesystem backend for testing
 func setupFileSystemBackend(t *testing.T) (*FileSystemBackend, string) {
-	tempDir, err := os.MkdirTemp("", "foundation-storage-engine-test-*")
+	tempDir, err := os.MkdirTemp("", "warp-storage-engine-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -556,7 +556,7 @@ func TestFileSystemBackend_ListParts_EmptyUpload(t *testing.T) {
 func TestFileSystemBackend_Multipart(t *testing.T) {
 	ctx := context.Background()
 
-	tempDir, err := os.MkdirTemp("", "foundation-storage-engine-multipart-test-*")
+	tempDir, err := os.MkdirTemp("", "warp-storage-engine-multipart-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

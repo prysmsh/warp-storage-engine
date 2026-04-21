@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
 	"golang.org/x/crypto/bcrypt"
 )
 

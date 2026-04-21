@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/einyx/foundation-storage-engine/internal/config"
+	"github.com/prysmsh/warp-storage-engine/internal/config"
 )
 
 func TestNewProvider(t *testing.T) {

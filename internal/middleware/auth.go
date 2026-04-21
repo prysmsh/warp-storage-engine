@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/einyx/foundation-storage-engine/internal/auth"
-	"github.com/einyx/foundation-storage-engine/internal/database"
+	"github.com/prysmsh/warp-storage-engine/internal/auth"
+	"github.com/prysmsh/warp-storage-engine/internal/database"
 	"github.com/sirupsen/logrus"
 )
 
