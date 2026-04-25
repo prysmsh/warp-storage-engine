@@ -6,6 +6,7 @@ toolchain go1.24.3
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
+	github.com/RoaringBitmap/roaring v1.9.4
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.7
@@ -34,6 +35,7 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.5 // indirect
+	github.com/bits-and-blooms/bitset v1.12.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
@@ -48,6 +50,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
