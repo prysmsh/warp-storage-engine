@@ -19,6 +19,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.9
+	github.com/oklog/ulid/v2 v2.1.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prysmsh/pkg v0.1.3
 	github.com/sirupsen/logrus v1.9.3
