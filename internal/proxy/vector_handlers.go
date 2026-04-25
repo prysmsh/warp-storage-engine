@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -204,6 +203,4 @@ func RegisterVectorRoutes(router *mux.Router, engine *vector.Engine) {
 	v.HandleFunc("/collections/{name}/search", h.Search).Methods("POST")
 
 	logrus.Info("Vector API routes registered at /api/v1/vectors/")
-
-	_ = strconv.Itoa(0) // ensure strconv import
 }

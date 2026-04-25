@@ -430,6 +430,11 @@ func (s *Server) setupRoutes() {
 	// Register feature flags endpoint
 	s.router.HandleFunc("/api/features", s.getFeatures).Methods("GET")
 
+	// Register vector engine API if enabled
+	if os.Getenv("VECTOR_ENABLED") == "true" {
+		InitVectorEngine(s.router, s.storage, nil)
+	}
+
 	// Register share link routes
 	s.router.HandleFunc("/api/share/create", s.shareLinkHandler.CreateShareLinkHandler).Methods("POST")
 	s.router.HandleFunc("/api/share/{shareID}", s.shareLinkHandler.ServeSharedFile).Methods("GET", "HEAD")
