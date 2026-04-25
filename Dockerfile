@@ -11,7 +11,7 @@ RUN go mod download
 
 COPY warp-storage-engine/ .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o warp-storage-engine ./cmd/warp-storage-engine
+RUN CGO_ENABLED=0 GOOS=linux go build -tags vector -a -installsuffix cgo -ldflags '-extldflags "-static"' -o warp-storage-engine ./cmd/warp-storage-engine
 
 # Final stage
 FROM alpine:latest
